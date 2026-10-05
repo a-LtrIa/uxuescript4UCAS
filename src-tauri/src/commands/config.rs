@@ -2,7 +2,9 @@ pub mod llm;
 
 use super::CommandsResult;
 
-use crate::config::{metadata::MetadataConfig, options::OptionsConfig, path::PathsConfig, CONFIG};
+use crate::config::{
+    metadata::MetadataConfig, options::OptionsConfig, path::PathsConfig, theme::ThemeName, CONFIG,
+};
 
 /// 获取包含版本及作者信息的应用元数据。
 #[uxs_commands::command]
@@ -11,6 +13,19 @@ pub fn metadata() -> MetadataConfig {
     let metadata = CONFIG.metadata.clone();
     log::info!("成功获取元数据: {:?}", metadata);
     metadata
+}
+
+/// Return the selected color theme for the main and mask WebViews.
+#[uxs_commands::command(webview = "mask")]
+pub fn current_theme() -> ThemeName {
+    CONFIG.theme.lock().name
+}
+
+/// Select a supported color theme in memory; save_config persists it with the other settings.
+#[uxs_commands::command]
+pub fn set_theme(name: ThemeName) {
+    log::debug!("正在设置主题: {name:?}");
+    CONFIG.theme.lock().name = name;
 }
 
 #[uxs_commands::command(webview = "chaoxing")]

@@ -73,6 +73,7 @@ const openIssues = async () => {
   line-height: 1.5;
   overflow-y: auto;
   overscroll-behavior-y: contain;
+  user-select: text;
 }
 
 .guide-content p {

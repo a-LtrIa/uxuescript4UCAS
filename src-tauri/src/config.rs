@@ -2,11 +2,13 @@ pub mod llm;
 pub mod metadata;
 pub mod options;
 pub mod path;
+pub mod theme;
 
 use llm::LLMConfig;
 use metadata::MetadataConfig;
 use options::OptionsConfig;
 use path::PathsConfig;
+use theme::ThemeConfig;
 
 use anyhow::Result;
 use parking_lot::Mutex;
@@ -19,6 +21,7 @@ pub struct Config {
     pub metadata: MetadataConfig,
     pub paths: PathsConfig,
     pub options: Mutex<OptionsConfig>,
+    pub theme: Mutex<ThemeConfig>,
     pub llm: LLMConfig,
 }
 

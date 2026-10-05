@@ -238,6 +238,7 @@ onUnmounted(() => {
   white-space: nowrap; /* 强制单行，禁止换行 */
   font-size: 1rem;
   color: var(--theme-brand-deep);
+  user-select: text;
 }
 
 .zoom-value {

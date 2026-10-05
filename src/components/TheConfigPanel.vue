@@ -3,12 +3,13 @@ import { reactive, ref, watch } from "vue";
 import VButton from "@/components/base/VButton.vue";
 import TheAPIPanel from "@/components/TheConfigPanel/TheAPIPanel.vue";
 import TheCourseConfigPanel from "./TheConfigPanel/TheCourseConfigPanel.vue";
+import TheThemePanel from "./TheConfigPanel/TheThemePanel.vue";
 import TheSidebar from "./TheConfigPanel/TheSidebar.vue";
 import { commands } from "@/services/cmds";
 
 const configPanel = reactive({
   activeIndex: 0,
-  items: [{ name: "API" }, { name: "Course" }],
+  items: [{ name: "API" }, { name: "Course" }, { name: "Theme" }],
 });
 const transitionName = ref("config-content-up");
 watch(
@@ -37,6 +38,11 @@ watch(
         <Transition :name="transitionName"
           ><TheCourseConfigPanel
             v-show="configPanel.activeIndex === 1"
+            class="config-panel-content"
+        /></Transition>
+        <Transition :name="transitionName"
+          ><TheThemePanel
+            v-show="configPanel.activeIndex === 2"
             class="config-panel-content"
         /></Transition>
       </div>

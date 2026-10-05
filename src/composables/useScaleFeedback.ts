@@ -12,6 +12,7 @@ export interface UseScaleFeedbackOptions {
   pressScale?: number;
   hoverDuration?: number;
   pressDuration?: number;
+  targetSelector?: string;
 }
 
 export function animateScale(
@@ -32,10 +33,18 @@ export function useScaleFeedback(options: UseScaleFeedbackOptions = {}) {
     pressScale = 0.95,
     hoverDuration = 0.75,
     pressDuration = 0.25,
+    targetSelector,
   } = options;
 
+  const getTarget = (event: PointerEvent): HTMLElement | SVGElement => {
+    const container = event.currentTarget as HTMLElement;
+    return targetSelector
+      ? container.querySelector<HTMLElement | SVGElement>(targetSelector)!
+      : container;
+  };
+
   const animate = (event: PointerEvent, scale: number, duration: number) => {
-    const target = event.currentTarget as HTMLElement;
+    const target = getTarget(event);
     animateScale(target, scale, { duration, ease: "elastic.out" });
   };
 
@@ -43,11 +52,11 @@ export function useScaleFeedback(options: UseScaleFeedbackOptions = {}) {
     handlePointerEnter: (event: PointerEvent) =>
       animate(event, hoverScale, hoverDuration),
     handlePointerLeave: (event: PointerEvent) => {
-      const target = event.currentTarget as HTMLElement;
+      const target = getTarget(event);
       animateScale(target, 1, { duration: 0.5, ease: "back.out" });
     },
     handlePointerDown: (event: PointerEvent) =>
-      animateScale(event.currentTarget as HTMLElement, pressScale, {
+      animateScale(getTarget(event), pressScale, {
         duration: pressDuration,
         ease: "power1.out",
       }),

@@ -4,6 +4,7 @@
     {
       "commands": {
         "allow": [
+          "current_theme",
           "hide_mask",
           "show_content",
           "start_mask"

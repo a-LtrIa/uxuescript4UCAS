@@ -192,6 +192,7 @@ onUnmounted(() => {
   overflow-wrap: break-word;
   line-height: 1.25;
   text-align: inherit;
+  user-select: text;
 }
 
 .percentage {

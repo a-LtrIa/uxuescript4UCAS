@@ -40,6 +40,11 @@
   );
 }
 
+::selection {
+  color: var(--theme-surface);
+  background-color: var(--theme-brand);
+}
+
 @media (prefers-reduced-motion: reduce) {
   :root {
     transition: none;

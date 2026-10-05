@@ -30,6 +30,10 @@ export const commands = {
 	setKey: (key: string) => __TAURI_INVOKE<null>("set_key", { key }),
 	/**  获取包含版本及作者信息的应用元数据。 */
 	metadata: () => __TAURI_INVOKE<MetadataConfig>("metadata"),
+	/**  Return the selected color theme for the main and mask WebViews. */
+	currentTheme: () => __TAURI_INVOKE<ThemeName>("current_theme"),
+	/**  Select a supported color theme in memory; save_config persists it with the other settings. */
+	setTheme: (name: ThemeName) => __TAURI_INVOKE<void>("set_theme", { name }),
 	options: () => __TAURI_INVOKE<OptionsConfig>("options"),
 	setOptions: (options: OptionsConfig) => __TAURI_INVOKE<void>("set_options", { options }),
 	/**  将内存中的全局配置持久化保存至本地文件。 */
@@ -149,4 +153,6 @@ export type TaskProgressPayload = {
 	index: number,
 	category: string,
 };
+
+export type ThemeName = "gentian" | "delphinium" | "camellia" | "gardenia";
 
