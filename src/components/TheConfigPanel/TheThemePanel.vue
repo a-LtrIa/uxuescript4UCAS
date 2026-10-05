@@ -59,8 +59,8 @@ const handleThemeKeydown = (event: KeyboardEvent, index: number) => {
     >
       <button
         v-for="(name, index) in themeNames"
-        :key="name"
         :id="`theme-option-${name}`"
+        :key="name"
         type="button"
         role="radio"
         class="theme-option"
