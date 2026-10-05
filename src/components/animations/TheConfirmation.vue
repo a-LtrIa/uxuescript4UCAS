@@ -98,7 +98,7 @@ onUnmounted(() => animation?.kill());
   justify-content: center;
   padding: 4vmin;
   box-sizing: border-box;
-  background: color-mix(in srgb, var(--theme-black) 55%, transparent);
+  background: rgb(0 0 0 / 55%);
   pointer-events: auto;
 }
 
