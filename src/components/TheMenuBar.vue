@@ -47,7 +47,7 @@ const closeApp = async () => {
 </script>
 
 <template>
-  <div class="menu-bar">
+  <header class="menu-bar">
     <div class="title">
       {{ appTitle }}
     </div>
@@ -73,7 +73,7 @@ const closeApp = async () => {
     >
       <CloseIcon class="icon" />
     </button>
-  </div>
+  </header>
 </template>
 
 <style scoped>

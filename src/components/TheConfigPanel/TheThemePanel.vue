@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { nextTick } from "vue";
 import { useScaleFeedback } from "@/composables/useScaleFeedback";
 import { commands } from "@/services/cmds";
 import { showError } from "@/services/errors";
@@ -28,19 +29,46 @@ const selectTheme = async (name: ThemeName) => {
     .setTheme(name)
     .catch((cause) => showError("Failed to update theme:", cause));
 };
+
+const handleThemeKeydown = (event: KeyboardEvent, index: number) => {
+  if (themeNames.length === 0) return;
+
+  let nextIndex: number | undefined;
+  if (event.key === "ArrowDown" || event.key === "ArrowRight") {
+    nextIndex = (index + 1) % themeNames.length;
+  } else if (event.key === "ArrowUp" || event.key === "ArrowLeft") {
+    nextIndex = (index - 1 + themeNames.length) % themeNames.length;
+  } else if (event.key === "Home") nextIndex = 0;
+  else if (event.key === "End") nextIndex = themeNames.length - 1;
+
+  if (nextIndex === undefined) return;
+  event.preventDefault();
+  const name = themeNames[nextIndex];
+  void selectTheme(name);
+  void nextTick(() => document.getElementById(`theme-option-${name}`)?.focus());
+};
 </script>
 
 <template>
   <div class="theme-panel">
-    <div class="theme-list custom-scrollbar">
+    <div
+      class="theme-list custom-scrollbar"
+      role="radiogroup"
+      aria-label="Color theme"
+      aria-orientation="vertical"
+    >
       <button
-        v-for="name in themeNames"
+        v-for="(name, index) in themeNames"
         :key="name"
+        :id="`theme-option-${name}`"
         type="button"
+        role="radio"
         class="theme-option"
         :style="themeStyle(name)"
-        :aria-pressed="activeTheme === name"
+        :aria-checked="activeTheme === name"
+        :tabindex="activeTheme === name ? 0 : -1"
         @click="selectTheme(name)"
+        @keydown="handleThemeKeydown($event, index)"
         @pointerenter="scaleFeedback.handlePointerEnter"
         @pointerleave="scaleFeedback.handlePointerLeave"
         @pointerdown="scaleFeedback.handlePointerDown"
@@ -86,6 +114,7 @@ const selectTheme = async (name: ThemeName) => {
   position: absolute;
   inset: 0;
   background: var(--theme-page-gradient);
+  /* Mask black means opaque, independent of the theme's appearance mode. */
   -webkit-mask-image: linear-gradient(
     to right,
     transparent,

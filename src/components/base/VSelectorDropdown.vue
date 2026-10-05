@@ -21,7 +21,6 @@ const { data, methods } = defineProps<{
 }>();
 
 const scaleFeedback = useScaleFeedback({ hoverScale: 1.25 });
-
 </script>
 
 <template>
@@ -29,8 +28,8 @@ const scaleFeedback = useScaleFeedback({ hoverScale: 1.25 });
     class="select-dropdown-wrapper"
     :style="{ '--option-height': data.optionHeight }"
   >
-    <div class="select-dropdown custom-scrollbar">
-      <div
+    <ul class="select-dropdown custom-scrollbar">
+      <li
         v-for="(item, index) in data.items"
         :key="index"
         class="select-option"
@@ -71,8 +70,8 @@ const scaleFeedback = useScaleFeedback({ hoverScale: 1.25 });
             />
           </button>
         </template>
-      </div>
-      <div
+      </li>
+      <li
         v-if="data.mutable"
         class="select-option"
       >
@@ -88,8 +87,8 @@ const scaleFeedback = useScaleFeedback({ hoverScale: 1.25 });
           />
           <span>New</span>
         </button>
-      </div>
-    </div>
+      </li>
+    </ul>
   </div>
 </template>
 
@@ -105,6 +104,9 @@ const scaleFeedback = useScaleFeedback({ hoverScale: 1.25 });
 }
 
 .select-dropdown {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   width: 100%;
   box-sizing: border-box;
   background-image: var(--theme-page-gradient);
@@ -136,7 +138,7 @@ const scaleFeedback = useScaleFeedback({ hoverScale: 1.25 });
 }
 
 .select-option:hover {
-  background-color: color-mix(in srgb, black 8%, transparent);
+  background-color: color-mix(in srgb, var(--theme-black) 8%, transparent);
 }
 
 .option-label,
@@ -201,10 +203,10 @@ const scaleFeedback = useScaleFeedback({ hoverScale: 1.25 });
 
 .select-option.is-selected {
   background-color: var(--theme-brand);
-  color: white;
+  color: var(--theme-white);
 }
 
 .is-selected .option-action {
-  color: white;
+  color: var(--theme-white);
 }
 </style>

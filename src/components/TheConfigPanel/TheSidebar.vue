@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { nextTick } from "vue";
 import { useScaleFeedback } from "@/composables/useScaleFeedback";
 
 const { items, modelValue } = defineProps<{
@@ -16,19 +17,50 @@ const {
   handlePointerDown,
   handlePointerUp,
 } = useScaleFeedback({ hoverScale: 1.25 });
+
+const tabId = (index: number) => `config-tab-${index}`;
+const panelId = (index: number) => `config-panel-${index}`;
+
+const handleTabKeydown = (event: KeyboardEvent, index: number) => {
+  if (items.length === 0) return;
+
+  let nextIndex: number | undefined;
+  if (event.key === "ArrowDown") nextIndex = (index + 1) % items.length;
+  else if (event.key === "ArrowUp")
+    nextIndex = (index - 1 + items.length) % items.length;
+  else if (event.key === "Home") nextIndex = 0;
+  else if (event.key === "End") nextIndex = items.length - 1;
+
+  if (nextIndex === undefined) return;
+  event.preventDefault();
+  const focusedIndex = nextIndex;
+  emit("update:modelValue", nextIndex);
+  void nextTick(() => document.getElementById(tabId(focusedIndex))?.focus());
+};
 </script>
 
 <template>
   <div class="sidebar">
     <div class="sidebar-content custom-scrollbar">
-      <div class="menu-layer">
+      <div
+        class="menu-layer"
+        role="tablist"
+        aria-label="Configuration sections"
+        aria-orientation="vertical"
+      >
         <button
           v-for="(item, index) in items"
           :key="item.name"
+          :id="tabId(index)"
           type="button"
+          role="tab"
+          :aria-controls="panelId(index)"
+          :aria-selected="modelValue === index"
+          :tabindex="modelValue === index ? 0 : -1"
           class="menu-item"
           :class="{ active: modelValue === index }"
           @click="emit('update:modelValue', index)"
+          @keydown="handleTabKeydown($event, index)"
           @pointerenter="handlePointerEnter"
           @pointerleave="handlePointerLeave"
           @pointerdown="handlePointerDown"

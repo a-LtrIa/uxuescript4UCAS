@@ -32,16 +32,25 @@ watch(
       <div class="container">
         <Transition :name="transitionName"
           ><TheAPIPanel
+            id="config-panel-0"
+            role="tabpanel"
+            aria-labelledby="config-tab-0"
             v-show="configPanel.activeIndex === 0"
             class="config-panel-content"
         /></Transition>
         <Transition :name="transitionName"
           ><TheCourseConfigPanel
+            id="config-panel-1"
+            role="tabpanel"
+            aria-labelledby="config-tab-1"
             v-show="configPanel.activeIndex === 1"
             class="config-panel-content"
         /></Transition>
         <Transition :name="transitionName"
           ><TheThemePanel
+            id="config-panel-2"
+            role="tabpanel"
+            aria-labelledby="config-tab-2"
             v-show="configPanel.activeIndex === 2"
             class="config-panel-content"
         /></Transition>

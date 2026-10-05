@@ -12,8 +12,8 @@ const openIssues = async () => {
 </script>
 
 <template>
-  <div class="guide-panel">
-    <h1 class="title">User Guide</h1>
+  <article class="guide-panel" aria-labelledby="guide-title">
+    <h1 id="guide-title" class="title">User Guide</h1>
     <div class="guide-content custom-scrollbar">
       <p>
         使用前，请在 Configuration 中选择适合的模型供应商与模型，并填写 API
@@ -39,7 +39,7 @@ const openIssues = async () => {
         <a href="mailto:unraous@qq.com">unraous@qq.com</a>。
       </p>
     </div>
-  </div>
+  </article>
 </template>
 
 <style scoped>

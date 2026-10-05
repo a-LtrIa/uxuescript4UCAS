@@ -18,21 +18,21 @@ onMounted(async () => {
 </script>
 
 <template>
-  <main class="container">
+  <div class="container">
     <TheMenuBar
       class="menu-bar"
       :app-title="metadata.title!"
     />
-    <div class="content">
+    <main class="content">
       <TheLeftLayout class="left" />
       <TheRightLayout class="right" />
-    </div>
+    </main>
     <TheBottomBar
       class="bottom-bar"
       :author="metadata.author!"
       :version="metadata.version!"
     />
-  </main>
+  </div>
 </template>
 
 <style scoped>

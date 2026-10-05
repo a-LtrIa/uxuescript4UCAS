@@ -19,23 +19,14 @@ const openDataDirectory = async () => {
     await openPath(dataDirectory);
   }
 };
-
-const handleDirectoryKeydown = (event: KeyboardEvent) => {
-  if (event.key === "Enter" || event.key === " ") {
-    event.preventDefault();
-    void openDataDirectory();
-  }
-};
 </script>
 
 <template>
-  <div class="bottom-bar">
-    <div
+  <footer class="bottom-bar">
+    <button
+      type="button"
       class="directory-entry"
-      role="button"
-      tabindex="0"
       @click="openDataDirectory"
-      @keydown="handleDirectoryKeydown"
       @pointerenter="scaleFeedback.handlePointerEnter"
       @pointerleave="scaleFeedback.handlePointerLeave"
       @pointerdown="scaleFeedback.handlePointerDown"
@@ -43,11 +34,11 @@ const handleDirectoryKeydown = (event: KeyboardEvent) => {
     >
       <FolderCodeIcon class="directory-icon" />
       <span>日志/配置目录</span>
-    </div>
+    </button>
     <div class="version-info">
       <p>by {{ author }} v{{ version }}</p>
     </div>
-  </div>
+  </footer>
 </template>
 
 <style scoped>
@@ -59,6 +50,9 @@ const handleDirectoryKeydown = (event: KeyboardEvent) => {
 }
 
 .directory-entry {
+  appearance: none;
+  border: 0;
+  background: transparent;
   padding-left: 2.5vw;
   display: flex;
   align-items: center;
@@ -66,6 +60,9 @@ const handleDirectoryKeydown = (event: KeyboardEvent) => {
   color: var(--theme-brand);
   cursor: pointer;
   font-size: 1.25rem;
+  font-family: inherit;
+  line-height: inherit;
+  text-align: left;
   transform-origin: center;
 }
 
