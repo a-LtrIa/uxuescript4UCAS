@@ -9,6 +9,9 @@ pub enum ThemeName {
     Delphinium,
     Camellia,
     Gardenia,
+    Iris,
+    Dahlia,
+    Poppy,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]

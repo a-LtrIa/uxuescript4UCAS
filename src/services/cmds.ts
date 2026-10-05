@@ -154,5 +154,5 @@ export type TaskProgressPayload = {
 	category: string,
 };
 
-export type ThemeName = "gentian" | "delphinium" | "camellia" | "gardenia";
+export type ThemeName = "gentian" | "delphinium" | "camellia" | "gardenia" | "iris" | "dahlia" | "poppy";
 

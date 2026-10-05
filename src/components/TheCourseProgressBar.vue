@@ -99,11 +99,11 @@ onUnmounted(() => {
   --brand-color: var(--theme-brand);
   background: conic-gradient(
     from 145deg at 50% 0%,
-    color-mix(in srgb, var(--brand-color), black 25%) 0deg,
+    color-mix(in srgb, var(--brand-color), var(--theme-black) 25%) 0deg,
     var(--brand-color) 160deg,
-    color-mix(in srgb, var(--brand-color), white 75%) 180deg,
+    color-mix(in srgb, var(--brand-color), var(--theme-white) 75%) 180deg,
     var(--brand-color) 200deg,
-    color-mix(in srgb, var(--brand-color), black 25%) 360deg
+    color-mix(in srgb, var(--brand-color), var(--theme-black) 25%) 360deg
   );
 }
 </style>

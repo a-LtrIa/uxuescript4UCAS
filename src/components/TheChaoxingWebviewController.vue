@@ -258,7 +258,8 @@ onUnmounted(() => {
   padding: 0 2%;
   gap: 8px;
   border: 2px solid var(--theme-brand-deep);
-  box-shadow: inset 0 2px 4px color-mix(in srgb, black 25%, transparent);
+  box-shadow: inset 0 2px 4px
+    color-mix(in srgb, var(--theme-black) 25%, transparent);
 }
 
 .title {

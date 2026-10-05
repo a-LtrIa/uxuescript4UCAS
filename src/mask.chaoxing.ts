@@ -6,16 +6,16 @@ import { initializeTheme, listenForThemeColors } from "./theme";
 import "./theme.css";
 
 installConsoleLogger("chaoxing-mask");
-void (async () => {
-  try {
-    initializeTheme(await commands.currentTheme());
-  } catch (cause) {
-    console.error("Failed to load Chaoxing mask color theme:", cause);
-  }
-  try {
-    await listenForThemeColors();
-  } catch (cause) {
-    console.error("Failed to listen for Chaoxing mask color changes:", cause);
-  }
-  createApp(TheChaoxingMaskPage).mount("#chaoxing-mask");
-})();
+void commands
+  .currentTheme()
+  .then(initializeTheme)
+  .catch((cause) =>
+    console.error("Failed to load Chaoxing mask color theme:", cause),
+  )
+  .then(() => listenForThemeColors())
+  .catch((cause) =>
+    console.error("Failed to listen for Chaoxing mask color changes:", cause),
+  )
+  .then(() => {
+    createApp(TheChaoxingMaskPage).mount("#chaoxing-mask");
+  });

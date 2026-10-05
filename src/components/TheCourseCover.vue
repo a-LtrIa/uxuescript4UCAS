@@ -95,11 +95,11 @@ defineProps<{
   color: var(--theme-surface);
   background: conic-gradient(
     from 145deg at 50% 0%,
-    color-mix(in srgb, var(--brand-color), black 25%) 0deg,
+    color-mix(in srgb, var(--brand-color), var(--theme-black) 25%) 0deg,
     var(--brand-color) 160deg,
-    color-mix(in srgb, var(--brand-color), white 75%) 180deg,
+    color-mix(in srgb, var(--brand-color), var(--theme-white) 75%) 180deg,
     var(--brand-color) 200deg,
-    color-mix(in srgb, var(--brand-color), black 25%) 360deg
+    color-mix(in srgb, var(--brand-color), var(--theme-black) 25%) 360deg
   );
   display: flex;
   align-items: center;
@@ -111,7 +111,8 @@ defineProps<{
 .placeholder-text {
   font-size: 2rem;
   letter-spacing: 1px;
-  text-shadow: 0 5px 2px color-mix(in srgb, black 70%, transparent);
+  text-shadow: 0 5px 2px
+    color-mix(in srgb, var(--theme-black) 70%, transparent);
 }
 
 /* 交叉渐变动画：旧元素淡出的同时新元素直接在其上淡入，无空白间隙 */

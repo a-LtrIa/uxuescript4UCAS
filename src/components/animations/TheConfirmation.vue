@@ -98,7 +98,7 @@ onUnmounted(() => animation?.kill());
   justify-content: center;
   padding: 4vmin;
   box-sizing: border-box;
-  background: rgb(0 0 0 / 55%);
+  background: color-mix(in srgb, var(--theme-black) 55%, transparent);
   pointer-events: auto;
 }
 
@@ -114,7 +114,8 @@ onUnmounted(() => animation?.kill());
   font-size: 1.8vmin;
   background: var(--theme-page-gradient);
   color: var(--theme-brand);
-  box-shadow: 0 1.25em 3em rgb(0 0 0 / 25%);
+  box-shadow: 0 1.25em 3em
+    color-mix(in srgb, var(--theme-black) 25%, transparent);
 }
 
 .title {

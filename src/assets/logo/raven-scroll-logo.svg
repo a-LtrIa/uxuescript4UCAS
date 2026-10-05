@@ -3,8 +3,8 @@
   <title id="title">Raven, scrolls and thorn-vine emblem</title>
   <desc id="desc">Two-theme-color vector logo.</desc>
   <style>
-    .primary, .primary-dark, .primary-deep, .primary-light { fill: var(--theme-brand-deep); }
-    .secondary, .secondary-dark, .secondary-deep, .secondary-light { fill: var(--theme-surface); }
+    .primary, .primary-dark, .primary-deep, .primary-light { fill: var(--theme-logo-primary); }
+    .secondary, .secondary-dark, .secondary-deep, .secondary-light { fill: var(--theme-logo-secondary); }
     .primary-deep { filter: url(#shade-48); }
     .primary-dark { filter: url(#shade-72); }
     .primary-light { filter: url(#tint-18); }

@@ -28,7 +28,8 @@ onUnmounted(() => tween?.kill());
 .closing-mask {
   position: absolute;
   inset: 0;
-  background: black;
+  /* Transition masks stay truly black in both light and dark themes. */
+  background: #000;
   opacity: 0;
 }
 </style>

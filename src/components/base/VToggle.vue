@@ -275,11 +275,11 @@ onUnmounted(() => {
   height: var(--ball-size);
   background: conic-gradient(
     from 145deg at 50% 0%,
-    color-mix(in srgb, var(--color), black 25%) 0deg,
+    color-mix(in srgb, var(--color), var(--theme-black) 25%) 0deg,
     var(--color) 160deg,
-    color-mix(in srgb, var(--color), white 75%) 180deg,
+    color-mix(in srgb, var(--color), var(--theme-white) 75%) 180deg,
     var(--color) 200deg,
-    color-mix(in srgb, var(--color), black 25%) 360deg
+    color-mix(in srgb, var(--color), var(--theme-black) 25%) 360deg
   );
   border-radius: 50%;
   visibility: hidden;

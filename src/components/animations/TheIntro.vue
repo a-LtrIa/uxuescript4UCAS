@@ -78,6 +78,7 @@ onUnmounted(() => intro.kill());
   position: absolute;
   inset: 0;
   color: var(--theme-brand);
+  /* Keep the themed gradient visible throughout the startup animation. */
   background: var(--theme-page-gradient);
   font-family: "DefaultFont", Inter, Avenir, Helvetica, Arial, sans-serif;
   font-size: 16px;
