@@ -51,8 +51,11 @@ export const commands = {
 	version: string,
 	body: string | null,
 } | null>("check_update"),
-	/**  下载并安装签名更新包；取消命令会中止正在读取的 HTTP 流。 */
-	downloadUpdate: (rid: number) => __TAURI_INVOKE<null>("download_update", { rid }),
+	/**
+	 *  下载并安装签名更新包；取消命令会中止正在读取的 HTTP 流。
+	 *  安装完成返回 true，下载取消返回 false；失败返回错误。
+	 */
+	downloadUpdate: (rid: number) => __TAURI_INVOKE<boolean>("download_update", { rid }),
 	/**  取消仍处于下载阶段的更新任务；进入安装阶段后返回 false。 */
 	cancelUpdateDownload: () => __TAURI_INVOKE<boolean>("cancel_update_download"),
 	setZoom: (scale: number | null) => __TAURI_INVOKE<null>("set_zoom", { scale }),

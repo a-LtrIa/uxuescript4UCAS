@@ -1,11 +1,14 @@
-﻿use std::sync::Arc;
+use std::sync::Arc;
 
 use anyhow::anyhow;
 use serde::Serialize;
 use specta::Type;
 use tauri::{Emitter, Manager, State, webview::Webview, window::Window};
 use tauri_plugin_updater::UpdaterExt;
-use tokio::{sync::Mutex, task::AbortHandle};
+use tokio::{
+    sync::Mutex,
+    task::{AbortHandle, JoinHandle},
+};
 
 use crate::app::window::prepare_exit;
 use crate::commands::CommandsResult;
@@ -63,13 +66,14 @@ pub async fn check_update(webview: Webview) -> CommandsResult<Option<UpdateInfo>
 }
 
 /// 下载并安装签名更新包；取消命令会中止正在读取的 HTTP 流。
+/// 安装完成返回 true，下载取消返回 false；失败返回错误。
 #[uxs_commands::command]
 pub async fn download_update(
     webview: Webview,
     window: Window,
     state: State<'_, DownloadState>,
     rid: u32,
-) -> CommandsResult<()> {
+) -> CommandsResult<bool> {
     let update = webview
         .resources_table()
         .get::<tauri_plugin_updater::Update>(rid)?;
@@ -115,17 +119,33 @@ pub async fn download_update(
     *active = Some(task.abort_handle());
     drop(active);
 
-    match task.await {
-        Ok(Ok(())) => Ok(()),
-        Ok(Err(error)) => {
+    match finish_download(task, &downloads).await {
+        Ok(installed) => Ok(installed),
+        Err(error) => {
             let _ = window.emit_to("mask", "update-download-failed", ());
             Err(error.into())
         }
-        Err(error) if error.is_cancelled() => Ok(()),
-        Err(error) => {
-            let _ = window.emit_to("mask", "update-download-failed", ());
-            Err(anyhow!(error).into())
-        }
+    }
+}
+
+async fn finish_download(
+    task: JoinHandle<anyhow::Result<()>>,
+    downloads: &Mutex<Option<AbortHandle>>,
+) -> anyhow::Result<bool> {
+    let task_id = task.id();
+    let result = task.await;
+    let mut active = downloads.lock().await;
+    // Cancellation frees the slot before this join finishes; a newer download may already own it.
+    if active
+        .as_ref()
+        .is_some_and(|download| download.id() == task_id)
+    {
+        active.take();
+    }
+    match result {
+        Ok(result) => result.map(|()| true),
+        Err(error) if error.is_cancelled() => Ok(false),
+        Err(error) => Err(anyhow!(error)),
     }
 }
 
@@ -137,4 +157,43 @@ pub async fn cancel_update_download(state: State<'_, DownloadState>) -> Commands
     };
     download.abort();
     Ok(true)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::finish_download;
+    use anyhow::anyhow;
+    use tokio::sync::Mutex;
+
+    #[tokio::test]
+    async fn failed_download_releases_the_slot_for_retry() {
+        let downloads = Mutex::new(None);
+        let failed = tokio::spawn(async { Err(anyhow!("download or signature failure")) });
+        *downloads.lock().await = Some(failed.abort_handle());
+        assert!(finish_download(failed, &downloads).await.is_err());
+        assert!(downloads.lock().await.is_none());
+
+        let retry = tokio::spawn(async { Ok(()) });
+        *downloads.lock().await = Some(retry.abort_handle());
+        assert!(finish_download(retry, &downloads).await.unwrap());
+        assert!(downloads.lock().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn cancelled_download_does_not_clear_a_newer_download() {
+        let downloads = Mutex::new(None);
+        let cancelled = tokio::spawn(std::future::pending::<anyhow::Result<()>>());
+        *downloads.lock().await = Some(cancelled.abort_handle());
+        downloads.lock().await.take().unwrap().abort();
+
+        let newer = tokio::spawn(std::future::pending::<anyhow::Result<()>>());
+        let newer_id = newer.id();
+        *downloads.lock().await = Some(newer.abort_handle());
+        assert!(!finish_download(cancelled, &downloads).await.unwrap());
+        assert_eq!(downloads.lock().await.as_ref().unwrap().id(), newer_id);
+
+        downloads.lock().await.take().unwrap().abort();
+        assert!(!finish_download(newer, &downloads).await.unwrap());
+        assert!(downloads.lock().await.is_none());
+    }
 }

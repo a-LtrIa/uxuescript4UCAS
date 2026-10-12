@@ -35,7 +35,7 @@ beforeEach(() => {
   vi.mocked(commands.platform).mockResolvedValue("windows");
   vi.mocked(commands.isMsiInstall).mockResolvedValue(true);
   vi.mocked(commands.confirm).mockResolvedValue(false);
-  vi.mocked(commands.downloadUpdate).mockResolvedValue(null);
+  vi.mocked(commands.downloadUpdate).mockResolvedValue(true);
   mocks.closeResource.mockResolvedValue();
 });
 
@@ -89,7 +89,7 @@ describe("useUpdater", () => {
       vi.mocked(commands.downloadUpdate).mockImplementation(async (rid) => {
         expect(confirmationFinished).toBe(true);
         expect(rid).toBe(42);
-        return null;
+        return true;
       });
       await useUpdater().checkForUpdates("2.1.4");
       expect(commands.downloadUpdate).toHaveBeenCalledWith(42);
@@ -98,11 +98,26 @@ describe("useUpdater", () => {
     },
   );
 
+  it.each(["windows", "darwin"])(
+    "does not relaunch or show an error after cancelling a download on %s",
+    async (platform) => {
+      vi.mocked(commands.platform).mockResolvedValue(platform);
+      vi.mocked(commands.confirm).mockResolvedValue(true);
+      vi.mocked(commands.downloadUpdate).mockResolvedValue(false);
+      await useUpdater().checkForUpdates("2.1.4");
+      expect(relaunch).not.toHaveBeenCalled();
+      expect(showError).not.toHaveBeenCalled();
+      expect(mocks.closeResource).toHaveBeenCalledOnce();
+    },
+  );
+
   it("shows an error if download or installation fails", async () => {
     const error = new Error("update failed");
+    vi.mocked(commands.platform).mockResolvedValue("darwin");
     vi.mocked(commands.confirm).mockResolvedValue(true);
     vi.mocked(commands.downloadUpdate).mockRejectedValue(error);
     await useUpdater().checkForUpdates("2.1.4");
+    expect(relaunch).not.toHaveBeenCalled();
     expect(showError).toHaveBeenCalledWith("下载或安装更新失败：", error);
     expect(mocks.closeResource).toHaveBeenCalledOnce();
   });

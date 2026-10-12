@@ -29,8 +29,8 @@ export function useUpdater() {
         return;
       }
 
-      await commands.downloadUpdate(update.rid);
-      if (platform === "darwin") await relaunch();
+      const installed = await commands.downloadUpdate(update.rid);
+      if (installed && platform === "darwin") await relaunch();
     } catch (error) {
       if (acceptedUpdate) {
         await showError("下载或安装更新失败：", error);
