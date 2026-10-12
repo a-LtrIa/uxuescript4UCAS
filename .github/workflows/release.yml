@@ -112,7 +112,9 @@ jobs:
       - name: Synchronize and validate version
         shell: pwsh
         run: |
-          pnpm sync:version
+          pnpm sync:config
+          $buildConfig = Get-Content -Raw config/build.json | ConvertFrom-Json
+          "ARTIFACT_PREFIX=$($buildConfig.app.artifact_prefix)" >> $env:GITHUB_ENV
 
           $cargoToml = Get-Content -Raw src-tauri/Cargo.toml
           $version = [regex]::Match($cargoToml, '(?m)^version\s*=\s*"([^"]+)"').Groups[1].Value
@@ -129,23 +131,48 @@ jobs:
 
       - name: Build MSI and portable executable
         shell: pwsh
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
-          pnpm exec tauri build --bundles msi
+          if ([string]::IsNullOrWhiteSpace($env:TAURI_SIGNING_PRIVATE_KEY)) {
+            throw "Set the TAURI_SIGNING_PRIVATE_KEY repository secret before creating releases"
+          }
+          $workspaceRoot = [System.IO.Path]::GetFullPath($env:GITHUB_WORKSPACE).TrimEnd('\') + '\'
+          $bundleDirectory = [System.IO.Path]::GetFullPath((Join-Path $env:GITHUB_WORKSPACE "target/release/bundle/msi"))
+          if (-not $bundleDirectory.StartsWith($workspaceRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+            throw "MSI output path escaped the workspace: $bundleDirectory"
+          }
+          if (Test-Path -LiteralPath $bundleDirectory) {
+            Remove-Item -LiteralPath $bundleDirectory -Recurse -Force
+          }
+          pnpm tauri build --bundles msi
 
           $releaseDirectory = Join-Path $env:GITHUB_WORKSPACE "release"
           New-Item -ItemType Directory -Path $releaseDirectory -Force | Out-Null
 
-          $portableExe = "target/release/uxuescript.exe"
+          $buildConfig = Get-Content -Raw config/build.json | ConvertFrom-Json
+          $portableExe = "target/release/$($buildConfig.app.name).exe"
           if (-not (Test-Path -LiteralPath $portableExe -PathType Leaf)) {
             throw "Portable executable not found: $portableExe"
           }
-          Copy-Item -LiteralPath $portableExe -Destination (Join-Path $releaseDirectory "uxs-$env:VERSION-win-x64.exe")
+          Copy-Item -LiteralPath $portableExe -Destination (Join-Path $releaseDirectory "$($env:ARTIFACT_PREFIX)-$env:VERSION-win-x64.exe")
 
-          $msi = Get-ChildItem -File "target/release/bundle/msi/*.msi" | Select-Object -First 1
+          $msi = Get-ChildItem -File "target/release/bundle/msi/*$($env:VERSION)*.msi" | Select-Object -First 1
           if ($null -eq $msi) {
             throw "MSI bundle not found"
           }
-          Copy-Item -LiteralPath $msi.FullName -Destination (Join-Path $releaseDirectory "uxs-$env:VERSION-win-x64.msi")
+          Copy-Item -LiteralPath $msi.FullName -Destination (Join-Path $releaseDirectory "$($env:ARTIFACT_PREFIX)-$env:VERSION-win-x64.msi")
+          $updaterBundle = "$($msi.FullName).zip"
+          $updaterSignature = "$updaterBundle.sig"
+          if (-not (Test-Path -LiteralPath $updaterBundle -PathType Leaf)) {
+            throw "MSI updater bundle not found: $updaterBundle"
+          }
+          if (-not (Test-Path -LiteralPath $updaterSignature -PathType Leaf)) {
+            throw "Signed MSI updater bundle not found: $updaterSignature"
+          }
+          Copy-Item -LiteralPath $updaterBundle -Destination (Join-Path $releaseDirectory "$($env:ARTIFACT_PREFIX)-$env:VERSION-win-x64.msi.zip")
+          Copy-Item -LiteralPath $updaterSignature -Destination (Join-Path $releaseDirectory "$($env:ARTIFACT_PREFIX)-$env:VERSION-win-x64.msi.zip.sig")
 
       - name: Upload Windows packages
         uses: actions/upload-artifact@v4
@@ -193,7 +220,9 @@ jobs:
 
       - name: Synchronize and validate version
         run: |
-          pnpm sync:version
+          pnpm sync:config
+          ARTIFACT_PREFIX="$(jq -r .app.artifact_prefix config/build.json)"
+          echo "ARTIFACT_PREFIX=$ARTIFACT_PREFIX" >> "$GITHUB_ENV"
 
           VERSION="$(sed -nE 's/^version[[:space:]]*=[[:space:]]*"([^"]+)"/\1/p' src-tauri/Cargo.toml | head -n 1)"
           TAG_VERSION="${GITHUB_REF_NAME#v}"
@@ -207,14 +236,28 @@ jobs:
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
       - name: Build macOS DMG
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
+          test -n "$TAURI_SIGNING_PRIVATE_KEY" || {
+            echo "Set the TAURI_SIGNING_PRIVATE_KEY repository secret before creating releases"
+            exit 1
+          }
           test "$(uname -m)" = "arm64"
-          pnpm exec tauri build --bundles dmg
+          rm -rf target/release/bundle/dmg target/release/bundle/macos
+          pnpm tauri build --bundles dmg
 
           mkdir -p release
           DMG="$(find target/release/bundle/dmg -maxdepth 1 -type f -name '*.dmg' | head -n 1)"
           test -n "$DMG"
-          cp "$DMG" "release/uxs-$VERSION-mac-arm64.dmg"
+          cp "$DMG" "release/$ARTIFACT_PREFIX-$VERSION-mac-arm64.dmg"
+
+          UPDATER_BUNDLE="$(find target/release/bundle/macos -maxdepth 1 -type f -name '*.app.tar.gz' | head -n 1)"
+          test -n "$UPDATER_BUNDLE"
+          cp "$UPDATER_BUNDLE" "release/$ARTIFACT_PREFIX-$VERSION-mac-arm64.app.tar.gz"
+          test -f "$UPDATER_BUNDLE.sig"
+          cp "$UPDATER_BUNDLE.sig" "release/$ARTIFACT_PREFIX-$VERSION-mac-arm64.app.tar.gz.sig"
 
       - name: Upload macOS package
         uses: actions/upload-artifact@v4
@@ -240,6 +283,29 @@ jobs:
           pattern: '*-release'
           path: release
           merge-multiple: true
+
+      - name: Generate updater manifest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          ARTIFACT_PREFIX="$(jq -r .app.artifact_prefix config/build.json)"
+          RELEASE_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}"
+          NOTES_FILE=".github/release-notes/$GITHUB_REF_NAME.md"
+          NOTES=""
+          if [ -f "$NOTES_FILE" ]; then
+            NOTES="$(cat "$NOTES_FILE")"
+          fi
+          jq -n \
+            --arg version "$VERSION" \
+            --arg notes "$NOTES" \
+            --arg pub_date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg win_url "$RELEASE_URL/$ARTIFACT_PREFIX-$VERSION-win-x64.msi.zip" \
+            --rawfile win_sig "release/$ARTIFACT_PREFIX-$VERSION-win-x64.msi.zip.sig" \
+            --arg mac_url "$RELEASE_URL/$ARTIFACT_PREFIX-$VERSION-mac-arm64.app.tar.gz" \
+            --rawfile mac_sig "release/$ARTIFACT_PREFIX-$VERSION-mac-arm64.app.tar.gz.sig" \
+            '{version:$version,notes:$notes,pub_date:$pub_date,platforms:{"windows-x86_64":{url:$win_url,signature:$win_sig},"darwin-aarch64":{url:$mac_url,signature:$mac_sig}}}' \
+            > release/latest.json
 
       - name: Create or update GitHub Release
         env:
