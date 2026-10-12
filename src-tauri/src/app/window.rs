@@ -3,10 +3,16 @@ use super::webview;
 use crate::config::CONFIG;
 
 use anyhow::Result;
-use std::time::Duration;
+use std::{
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+    time::Duration,
+};
 use tauri::{
-    image::Image, webview::Webview, window::Window, Emitter, LogicalPosition, LogicalSize, Manager,
-    PhysicalSize, WindowBuilder, WindowEvent,
+    Emitter, Listener, LogicalPosition, LogicalSize, Manager, PhysicalSize, WindowBuilder,
+    WindowEvent, image::Image, webview::Webview, window::Window,
 };
 
 /// 执行窗口关闭前的应用状态刷新与持久化收尾工作
@@ -34,12 +40,17 @@ async fn notify_exit_animation(window: &Window) {
 
 async fn close(window: Window) {
     log::debug!("执行程序收尾工作，即将关闭应用");
+    prepare_exit(&window).await;
+    window.destroy().ok();
+}
+
+/// Run the same exit animation and state flush before an updater exits the process directly.
+pub async fn prepare_exit(window: &Window) {
     tokio::join!(
         tokio::time::sleep(Duration::from_millis(750)),
-        notify_exit_animation(&window),
+        notify_exit_animation(window),
         flush_app_state(),
     );
-    window.destroy().ok();
 }
 
 fn resize(webview: &Webview, size: LogicalSize<f64>) -> Result<()> {
@@ -132,7 +143,22 @@ pub fn init(app: &mut tauri::App) -> std::result::Result<(), Box<dyn std::error:
     webview::init_on(&window, "main")?.hide()?;
     webview::init_on(&window, "chaoxing")?.hide()?;
     webview::init_on(&window, "chaoxing-mask")?.hide()?;
-    webview::init_on(&window, "mask")?;
+    let mask = webview::init_on(&window, "mask")?;
+    let startup_started = Arc::new(AtomicBool::new(false));
+    let startup_window = window.clone();
+    mask.listen("mask-ready", move |_| {
+        if startup_started.swap(true, Ordering::AcqRel) {
+            return;
+        }
+
+        if let Err(error) = startup_window
+            .show()
+            .and_then(|_| startup_window.emit_to("mask", "start-event", ()))
+        {
+            startup_started.store(false, Ordering::Release);
+            log::error!("启动开屏动画失败: {error}");
+        }
+    });
 
     log::info!("初始化应用窗口成功");
 

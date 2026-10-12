@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Fragment>
+    <DirectoryRef Id="INSTALLDIR">
+      <Component Id="UpdaterInstallMarker" Guid="A349D915-45DA-437B-A923-DA6A4524358D">
+        <RegistryKey Root="HKCU" Key="Software\unraous\uxuescript">
+          <RegistryValue Type="integer" Name="UpdaterInstall" Value="1" KeyPath="yes"/>
+        </RegistryKey>
+      </Component>
+    </DirectoryRef>
+  </Fragment>
+</Wix>

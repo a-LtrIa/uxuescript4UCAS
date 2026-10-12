@@ -2,7 +2,7 @@ pub mod ollama;
 
 use super::CommandsResult;
 
-use crate::config::{llm::LLMProvider, CONFIG};
+use crate::config::{CONFIG, llm::LLMProvider};
 
 /// 获取当前可用的全部大语言模型提供商列表。
 #[uxs_commands::command]
@@ -55,10 +55,10 @@ pub fn upsert_provider(mut provider: LLMProvider) -> CommandsResult<()> {
 
     let mut providers = CONFIG.llm.providers.lock();
     let name = provider.name.clone();
-    if let Some(existing) = providers.get(&name) {
-        if !existing.is_custom {
-            return Err(anyhow::anyhow!("内置 AI Provider [{}] 不允许覆盖", name).into());
-        }
+    if let Some(existing) = providers.get(&name)
+        && !existing.is_custom
+    {
+        return Err(anyhow::anyhow!("内置 AI Provider [{}] 不允许覆盖", name).into());
     }
 
     let was_updated = providers.insert(name.clone(), provider).is_some();

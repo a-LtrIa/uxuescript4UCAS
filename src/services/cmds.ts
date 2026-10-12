@@ -28,8 +28,6 @@ export const commands = {
 	switchModel: (index: number) => __TAURI_INVOKE<void>("switch_model", { index }),
 	/**  设置当前大语言模型提供商的 API 密钥。 */
 	setKey: (key: string) => __TAURI_INVOKE<null>("set_key", { key }),
-	/**  获取包含版本及作者信息的应用元数据。 */
-	metadata: () => __TAURI_INVOKE<MetadataConfig>("metadata"),
 	options: () => __TAURI_INVOKE<OptionsConfig>("options"),
 	setOptions: (options: OptionsConfig) => __TAURI_INVOKE<void>("set_options", { options }),
 	/**  将内存中的全局配置持久化保存至本地文件。 */
@@ -37,12 +35,22 @@ export const commands = {
 	paths: () => __TAURI_INVOKE<PathsConfig>("paths"),
 	/**  显示调用方对应的确认遮罩，并在退出动画及隐藏完成后返回选择。 */
 	confirm: (message: string) => __TAURI_INVOKE<boolean>("confirm", { message }),
-	/**  遮罩监听器就绪后显示窗口并发送开屏事件。 */
-	startMask: () => __TAURI_INVOKE<null>("start_mask"),
 	/**  显示初始化时隐藏的主界面和超星 Webview；此命令不检查页面加载状态。 */
 	showContent: () => __TAURI_INVOKE<null>("show_content"),
-	/**  异步隐藏遮罩，避免遮罩 Webview 在自身 IPC 调用链中等待可见性更新。 */
-	hideMask: () => __TAURI_INVOKE<null>("hide_mask"),
+	/**  异步隐藏遮罩，避免遮罩 Webview 等待自身 IPC 调用链；开屏完成时通知主界面。 */
+	hideMask: (notifyStartup: boolean) => __TAURI_INVOKE<null>("hide_mask", { notifyStartup }),
+	/**  MSI 安装器写入注册表标记，便携程序不写入。 */
+	isMsiInstall: () => __TAURI_INVOKE<boolean | null>("is_msi_install"),
+	/**  检查更新并将 updater 资源 ID 显式交给前端后续下载或释放。 */
+	checkUpdate: () => __TAURI_INVOKE<{
+	rid: number,
+	version: string,
+	body: string | null,
+} | null>("check_update"),
+	/**  下载并安装签名更新包；取消命令会中止正在读取的 HTTP 流。 */
+	downloadUpdate: (rid: number) => __TAURI_INVOKE<null>("download_update", { rid }),
+	/**  取消仍处于下载阶段的更新任务；进入安装阶段后返回 false。 */
+	cancelUpdateDownload: () => __TAURI_INVOKE<boolean>("cancel_update_download"),
 	setZoom: (scale: number | null) => __TAURI_INVOKE<null>("set_zoom", { scale }),
 	canGoBack: () => __TAURI_INVOKE<boolean>("can_go_back"),
 	canGoForward: () => __TAURI_INVOKE<boolean>("can_go_forward"),
@@ -120,14 +128,6 @@ export type LLMProvider = {
 	chosenModel: number | null,
 };
 
-export type MetadataConfig = {
-	author?: string,
-	title?: string,
-	version?: string,
-	homeUrl?: string,
-	logLevel?: string,
-};
-
 export type OptionsConfig = {
 	persistSession?: boolean,
 	muteWebview?: boolean,
@@ -148,5 +148,11 @@ export type TabProgressPayload = {
 export type TaskProgressPayload = {
 	index: number,
 	category: string,
+};
+
+export type UpdateInfo = {
+	rid: number,
+	version: string,
+	body: string | null,
 };
 

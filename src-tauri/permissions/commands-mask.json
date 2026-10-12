@@ -4,9 +4,9 @@
     {
       "commands": {
         "allow": [
+          "cancel_update_download",
           "hide_mask",
-          "show_content",
-          "start_mask"
+          "show_content"
         ],
         "deny": []
       },
