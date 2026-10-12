@@ -32,10 +32,10 @@ fn font_map(font_data: &[u8]) -> HashMap<char, char> {
     let mut glyph_to_char = HashMap::with_capacity(num_glyphs as usize);
     for subtable in cmap.subtables {
         subtable.codepoints(|codepoint| {
-            if let Some(gid) = subtable.glyph_index(codepoint) {
-                if let Some(ch) = char::from_u32(codepoint) {
-                    glyph_to_char.entry(gid.0).or_insert(ch);
-                }
+            if let Some(gid) = subtable.glyph_index(codepoint)
+                && let Some(ch) = char::from_u32(codepoint)
+            {
+                glyph_to_char.entry(gid.0).or_insert(ch);
             }
         });
     }

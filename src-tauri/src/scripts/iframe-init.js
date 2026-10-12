@@ -32,7 +32,11 @@
 
     // 3. 拦截后续动态 addEventListener
     const originalAdd = window.EventTarget.prototype.addEventListener;
-    window.EventTarget.prototype.addEventListener = function (type, listener, options) {
+    window.EventTarget.prototype.addEventListener = function (
+      type,
+      listener,
+      options,
+    ) {
       if (blockedEvents.includes(type)) return;
       return originalAdd.call(this, type, listener, options);
     };
@@ -82,18 +86,21 @@
   document.addEventListener(
     "click",
     (e) => {
-      const anchor = e.target?.closest?.("a[href]");
-      if (!anchor) return;
+      const eventTarget = e.target;
+      if (!(eventTarget instanceof Element)) return;
 
-      const href = anchor.getAttribute("href");
+      const link = eventTarget.closest("a[href]");
+      if (!(link instanceof HTMLAnchorElement)) return;
+
+      const href = link.getAttribute("href");
       if (!href || href.startsWith("#") || href.startsWith("javascript:"))
         return;
 
-      const target = anchor.getAttribute("target") || anchor.target;
+      const target = link.getAttribute("target") || link.target;
       if (target === "_blank" || target === "_top" || target === "_parent") {
         e.preventDefault();
         e.stopPropagation();
-        safeNavigate(anchor.href);
+        safeNavigate(link.href);
       }
     },
     true,

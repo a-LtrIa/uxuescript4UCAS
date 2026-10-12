@@ -112,21 +112,20 @@ async fn chat_completions(
         { "role": "user", "content": serde_json::to_string(questions)? }
     ]);
 
-    if let Some(extra) = &provider.extra_body {
-        if let (Some(req_obj), Some(extra_obj)) = (request_body.as_object_mut(), extra.as_object())
-        {
-            for (k, v) in extra_obj {
-                req_obj.insert(k.clone(), v.clone());
-            }
+    if let Some(extra) = &provider.extra_body
+        && let (Some(req_obj), Some(extra_obj)) = (request_body.as_object_mut(), extra.as_object())
+    {
+        for (k, v) in extra_obj {
+            req_obj.insert(k.clone(), v.clone());
         }
     }
 
     let response = send_with_retry(|| {
         let mut req = client.post(&provider.base_url);
-        if let Some(key) = provider.api_key.as_ref().map(|key| key.expose()) {
-            if !key.trim().is_empty() {
-                req = req.header("Authorization", format!("Bearer {}", key));
-            }
+        if let Some(key) = provider.api_key.as_ref().map(|key| key.expose())
+            && !key.trim().is_empty()
+        {
+            req = req.header("Authorization", format!("Bearer {}", key));
         }
         req.header("Content-Type", "application/json")
             .json(&request_body)
@@ -176,10 +175,10 @@ async fn responses(
 
     let response = send_with_retry(|| {
         let mut req = client.post(&provider.base_url);
-        if let Some(key) = provider.api_key.as_ref().map(|key| key.expose()) {
-            if !key.trim().is_empty() {
-                req = req.header("Authorization", format!("Bearer {}", key));
-            }
+        if let Some(key) = provider.api_key.as_ref().map(|key| key.expose())
+            && !key.trim().is_empty()
+        {
+            req = req.header("Authorization", format!("Bearer {}", key));
         }
         req.header("Content-Type", "application/json")
             .json(&request_body)
@@ -208,10 +207,10 @@ async fn responses(
         })
         .ok_or_else(|| anyhow::anyhow!("无法从 OpenAI 响应提取文本。原始响应: {}", data))?;
 
-    if let Ok(wrapper) = serde_json::from_str::<serde_json::Value>(content) {
-        if let Some(answers) = wrapper.get("answers") {
-            return Ok(serde_json::from_value(answers.clone())?);
-        }
+    if let Ok(wrapper) = serde_json::from_str::<serde_json::Value>(content)
+        && let Some(answers) = wrapper.get("answers")
+    {
+        return Ok(serde_json::from_value(answers.clone())?);
     }
 
     serde_json::from_str::<Vec<AnswerItem>>(content).map_err(|e| {
@@ -241,10 +240,10 @@ async fn gemini(
     let url = format!("{}/{}:generateContent", provider.base_url, model);
     let response = send_with_retry(|| {
         let mut req = client.post(&url);
-        if let Some(key) = provider.api_key.as_ref().map(|key| key.expose()) {
-            if !key.trim().is_empty() {
-                req = req.header("x-goog-api-key", key);
-            }
+        if let Some(key) = provider.api_key.as_ref().map(|key| key.expose())
+            && !key.trim().is_empty()
+        {
+            req = req.header("x-goog-api-key", key);
         }
         req.header("Content-Type", "application/json").json(&body)
     })
