@@ -1,0 +1,38 @@
+{
+  "version": "2.1.4",
+  "app": {
+    "name": "uxuescript",
+    "artifact_prefix": "uxs",
+    "author": "unraous",
+    "title": "uXueScript",
+    "identifier": "top.unraous.uxs",
+    "mock_identifier": "top.unraous.uxs.mock",
+    "home_url": "https://i.mooc.chaoxing.com/"
+  },
+  "updater": {
+    "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDY2NDQyODU4QTM3NzU2N0EKUldSNlZuZWpXQ2hFWmlwbkVtWUVPdlhsaGxJc1VBY1V3cUswa2hRQktYYUcrRFBidE9GaGt4eXUK",
+    "endpoints": [
+      "https://github.com/unraous/uxuescript/releases/latest/download/latest.json"
+    ],
+    "release_url": "https://github.com/unraous/uxuescript/releases/latest",
+    "mock": {
+      "port": 35821,
+      "versions": ["2.2.0", "2.2.10"]
+    }
+  },
+  "msi": {
+    "component_id": "UpdaterInstallMarker",
+    "value_name": "UpdaterInstall",
+    "value": 1,
+    "default": {
+      "key": "Software\\unraous\\uxuescript",
+      "guid": "A349D915-45DA-437B-A923-DA6A4524358D",
+      "upgrade_code": "e17c0865-5de2-58e1-b409-c39958ff8116"
+    },
+    "mock": {
+      "key": "Software\\unraous\\uxuescript.mock",
+      "guid": "6F7C6D1A-10C7-4E3A-9930-9066A5B00896",
+      "upgrade_code": "5e27ccdb-9ee4-4c85-a8b7-c63b6ffb0678"
+    }
+  }
+}
