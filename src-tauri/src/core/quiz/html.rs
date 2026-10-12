@@ -118,14 +118,14 @@ mod tests {
             serde_json::Value::Object(fields) => {
                 for (key, item) in fields.iter_mut() {
                     normalize_whitespace(item);
-                    if key == "选项" {
-                        if let serde_json::Value::Array(options) = item {
-                            for option in options {
-                                if let serde_json::Value::String(text) = option {
-                                    let mut chars = text.chars();
-                                    if let Some(label @ 'A'..='D') = chars.next() {
-                                        *text = format!("{}{}", label, chars.as_str().trim_start());
-                                    }
+                    if key == "选项"
+                        && let serde_json::Value::Array(options) = item
+                    {
+                        for option in options {
+                            if let serde_json::Value::String(text) = option {
+                                let mut chars = text.chars();
+                                if let Some(label @ 'A'..='D') = chars.next() {
+                                    *text = format!("{}{}", label, chars.as_str().trim_start());
                                 }
                             }
                         }

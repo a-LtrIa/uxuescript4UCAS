@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "uxuescript",
+  "productName": "uXueScript",
   "identifier": "top.unraous.uxs",
   "build": {
     "beforeDevCommand": "pnpm run dev",
@@ -16,11 +16,52 @@
   },
   "bundle": {
     "active": true,
+    "createUpdaterArtifacts": true,
     "targets": "all",
+    "publisher": "unraous",
+    "licenseFile": "../LICENSE",
+    "windows": {
+      "wix": {
+        "fragmentPaths": [
+          "./windows/fragments/updater-marker.wxs"
+        ],
+        "componentRefs": [
+          "UpdaterInstallMarker"
+        ],
+        "upgradeCode": "e17c0865-5de2-58e1-b409-c39958ff8116",
+        "language": {
+          "zh-CN": {
+            "localePath": "./windows/installer/zh-CN.wxl"
+          }
+        },
+        "bannerPath": "./windows/installer/banner.bmp",
+        "dialogImagePath": "./windows/installer/dialog.bmp"
+      }
+    },
     "icon": [
       "icons/icon.png",
       "icons/icon.ico"
     ]
   },
-  "version": "2.1.4"
+  "version": "2.1.4",
+  "plugins": {
+    "uxuescript": {
+      "homeUrl": "https://i.mooc.chaoxing.com/",
+      "msi": {
+        "componentId": "UpdaterInstallMarker",
+        "valueName": "UpdaterInstall",
+        "value": 1,
+        "keys": {
+          "top.unraous.uxs": "Software\\unraous\\uxuescript",
+          "top.unraous.uxs.mock": "Software\\unraous\\uxuescript.mock"
+        }
+      }
+    },
+    "updater": {
+      "endpoints": [
+        "https://github.com/unraous/uxuescript/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDY2NDQyODU4QTM3NzU2N0EKUldSNlZuZWpXQ2hFWmlwbkVtWUVPdlhsaGxJc1VBY1V3cUswa2hRQktYYUcrRFBidE9GaGt4eXUK"
+    }
+  }
 }

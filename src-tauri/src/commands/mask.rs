@@ -1,8 +1,8 @@
 use super::CommandsResult;
 
 use anyhow::anyhow;
-use tauri::{window::Window, Emitter, Listener, Manager, State, Webview};
-use tokio::sync::{oneshot, Mutex};
+use tauri::{Emitter, Listener, Manager, State, Webview, window::Window};
+use tokio::sync::{Mutex, oneshot};
 
 #[derive(Default)]
 pub struct Confirmations(Mutex<()>, Mutex<()>);
@@ -47,42 +47,38 @@ pub async fn confirm(
     Ok(choice)
 }
 
-/// 遮罩监听器就绪后显示窗口并发送开屏事件。
-#[uxs_commands::command(webview = "mask")]
-pub fn start_mask(window: Window) -> CommandsResult<()> {
-    window.show()?;
-    let mask = window
-        .get_webview("mask")
-        .ok_or_else(|| anyhow!("未找到遮罩 Webview"))?;
-    mask.emit_to("mask", "start-event", ())?;
-    Ok(())
-}
-
 /// 显示初始化时隐藏的主界面和超星 Webview；此命令不检查页面加载状态。
 #[uxs_commands::command(webview = "mask")]
 pub fn show_content(window: Window) -> CommandsResult<()> {
-    let main = window
+    window
         .get_webview("main")
-        .ok_or_else(|| anyhow!("未找到主界面 Webview"))?;
-    let chaoxing = window
+        .ok_or_else(|| anyhow!("未找到主界面 Webview"))?
+        .show()?;
+    window
         .get_webview("chaoxing")
-        .ok_or_else(|| anyhow!("未找到超星 Webview"))?;
+        .ok_or_else(|| anyhow!("未找到超星 Webview"))?
+        .show()?;
 
-    main.show()?;
-    chaoxing.show()?;
     Ok(())
 }
 
-/// 异步隐藏遮罩，避免遮罩 Webview 在自身 IPC 调用链中等待可见性更新。
+/// 异步隐藏遮罩，避免遮罩 Webview 等待自身 IPC 调用链；开屏完成时通知主界面。
 #[uxs_commands::command(webview = "mask")]
-pub fn hide_mask(window: Window) -> CommandsResult<()> {
+pub fn hide_mask(window: Window, notify_startup: bool) -> CommandsResult<()> {
     let mask = window
         .get_webview("mask")
         .ok_or_else(|| anyhow!("未找到遮罩 Webview"))?;
 
     tauri::async_runtime::spawn(async move {
-        if let Err(e) = mask.hide() {
-            log::error!("隐藏遮罩 Webview 失败: {}", e);
+        let result = mask.hide().and_then(|_| {
+            if notify_startup {
+                window.emit_to("main", "startup-finished", ())
+            } else {
+                Ok(())
+            }
+        });
+        if let Err(error) = result {
+            log::error!("隐藏遮罩失败: {error}");
         }
     });
     Ok(())

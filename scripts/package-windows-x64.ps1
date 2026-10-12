@@ -2,17 +2,10 @@
 $ErrorActionPreference = "Stop"
 
 $root = Split-Path -Parent $PSScriptRoot
-$cargoTomlPath = Join-Path $root "src-tauri\Cargo.toml"
-$cargoToml = Get-Content -Path $cargoTomlPath -Raw
-$versionMatch = [regex]::Match($cargoToml, '(?m)^version\s*=\s*"([^"]+)"')
-
-if (-not $versionMatch.Success) {
-    throw "Cannot find package.version in $cargoTomlPath"
-}
-
-$version = $versionMatch.Groups[1].Value
-$exePath = Join-Path $root "src-tauri\target\release\uxuescript.exe"
-$artifactPath = Join-Path (Split-Path -Parent $exePath) "uxs-$version-win-x64.exe"
+$config = Get-Content -Raw (Join-Path $root "config/build.json") | ConvertFrom-Json
+$tauriConfig = Get-Content -Raw (Join-Path $root "src-tauri/tauri.conf.json") | ConvertFrom-Json
+$exePath = Join-Path $root "target/release/$($config.app.name).exe"
+$artifactPath = Join-Path (Split-Path -Parent $exePath) "$($config.app.artifact_prefix)-$($tauriConfig.version)-win-x64.exe"
 
 if (-not (Test-Path -LiteralPath $exePath -PathType Leaf)) {
     throw "Release executable not found: $exePath"

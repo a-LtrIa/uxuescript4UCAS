@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import TheMaskAnimations from "@/components/animations/TheMaskAnimations.vue";
+import TheMaskManager from "@/TheMaskManager.vue";
 </script>
 
 <template>
-  <TheMaskAnimations startup />
+  <TheMaskManager startup />
 </template>

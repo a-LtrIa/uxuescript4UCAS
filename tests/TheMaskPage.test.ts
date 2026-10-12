@@ -1,11 +1,12 @@
-import { flushPromises, mount } from "@vue/test-utils";
+﻿import { flushPromises, mount } from "@vue/test-utils";
 import { gsap } from "gsap";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import TheMaskPage from "@/TheMaskPage.vue";
 import TheChaoxingMaskPage from "@/TheChaoxingMaskPage.vue";
+import TheCourseProgressBar from "@/components/TheCourseProgressBar.vue";
 import { commands } from "@/services/cmds";
-import { emitTo } from "@tauri-apps/api/event";
+import { emit, emitTo } from "@tauri-apps/api/event";
 
 const events = vi.hoisted(
   () => new Map<string, (event?: { payload: unknown }) => void>(),
@@ -15,6 +16,7 @@ const animationCompletions = vi.hoisted(() => [] as Array<() => void>);
 const currentWebview = vi.hoisted(() => ({ label: "mask" }));
 
 vi.mock("@tauri-apps/api/event", () => ({
+  emit: vi.fn(async () => {}),
   emitTo: vi.fn(async () => {}),
 }));
 
@@ -31,8 +33,8 @@ vi.mock("@tauri-apps/api/webview", () => ({
 vi.mock("@/services/cmds", () => ({
   commands: {
     showContent: vi.fn(async () => {}),
-    startMask: vi.fn(async () => {}),
     hideMask: vi.fn(async () => {}),
+    cancelUpdateDownload: vi.fn(async () => true),
   },
 }));
 
@@ -75,6 +77,96 @@ afterEach(() => {
 });
 
 describe("TheMaskPage", () => {
+  it("shows a cancel-only updater dialog with the course progress bar", async () => {
+    const wrapper = mount(TheMaskPage);
+    await flushPromises();
+
+    expect(emit).toHaveBeenCalledWith("mask-ready", {});
+    expect(wrapper.find(".intro-mask").exists()).toBe(false);
+
+    events.get("update-download-start")?.();
+    await nextTick();
+    const dialog = wrapper.find('[role="dialog"][aria-label="Downloading..."]');
+    const buttons = wrapper.findAll("button");
+    const progress = wrapper.findComponent(TheCourseProgressBar);
+    expect(dialog.exists()).toBe(true);
+    expect(buttons).toHaveLength(1);
+    expect(buttons[0].text()).toBe("取消");
+    expect(progress.props("progress")).toBe(0);
+
+    events.get("update-download-progress")?.({
+      payload: { downloaded: 75, total: 100 },
+    });
+    await nextTick();
+    expect(progress.props("progress")).toBe(75);
+    expect(dialog.text()).toContain("75%");
+
+    await buttons[0].trigger("click");
+    expect(commands.cancelUpdateDownload).toHaveBeenCalledOnce();
+    animationCompletions.shift()?.();
+    await nextTick();
+    expect(wrapper.find('[aria-label="Downloading..."]').exists()).toBe(false);
+    expect(commands.hideMask).toHaveBeenCalledWith(false);
+    wrapper.unmount();
+  });
+
+  it("keeps the task dialog open when the update download cannot be cancelled", async () => {
+    vi.mocked(commands.cancelUpdateDownload).mockResolvedValueOnce(false);
+    const wrapper = mount(TheMaskPage);
+    await flushPromises();
+
+    events.get("update-download-start")?.();
+    await nextTick();
+    await wrapper.find("button").trigger("click");
+
+    expect(wrapper.find('[aria-label="Downloading..."]').exists()).toBe(true);
+    expect(commands.hideMask).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
+  it("uses the same managed task dialog for the preview and hides it after cancellation", async () => {
+    const wrapper = mount(TheMaskPage);
+    await flushPromises();
+
+    events.get("update-download-preview-start")?.();
+    events.get("update-download-preview-progress")?.({ payload: 42 });
+    await nextTick();
+    expect(wrapper.find('[aria-label="Downloading..."]').text()).toContain(
+      "42%",
+    );
+
+    await wrapper.find("button").trigger("click");
+    animationCompletions.shift()?.();
+    await nextTick();
+    expect(emitTo).toHaveBeenCalledWith(
+      "main",
+      "update-download-preview-cancelled",
+    );
+    expect(wrapper.find('[aria-label="Downloading..."]').exists()).toBe(false);
+    expect(commands.hideMask).toHaveBeenCalledWith(false);
+    wrapper.unmount();
+  });
+
+  it("closes the download dialog when the exit animation starts and clears failed installs", async () => {
+    const wrapper = mount(TheMaskPage);
+    await flushPromises();
+
+    events.get("update-download-start")?.();
+    events.get("close-event")?.();
+    await nextTick();
+
+    expect(wrapper.find('[aria-label="Downloading..."]').exists()).toBe(false);
+    expect(wrapper.find(".closing-mask").exists()).toBe(true);
+
+    events.get("close-cancelled")?.();
+    events.get("update-download-failed")?.();
+    await nextTick();
+    expect(wrapper.find(".closing-mask").exists()).toBe(false);
+    expect(wrapper.find('[aria-label="Downloading..."]').exists()).toBe(false);
+    expect(commands.hideMask).toHaveBeenCalledWith(false);
+    wrapper.unmount();
+  });
+
   it("mounts the intro for the start event and removes it after completion", async () => {
     let resolveShowContent: (value: null) => void = () => {};
     vi.mocked(commands.showContent).mockImplementationOnce(
@@ -87,7 +179,7 @@ describe("TheMaskPage", () => {
     await flushPromises();
 
     expect(commands.showContent).not.toHaveBeenCalled();
-    expect(commands.startMask).toHaveBeenCalledOnce();
+    expect(emit).toHaveBeenCalledWith("mask-ready", {});
     expect(wrapper.findAll(".mask-layer")).toHaveLength(0);
 
     events.get("start-event")?.();
@@ -112,7 +204,7 @@ describe("TheMaskPage", () => {
     await flushPromises();
 
     expect(wrapper.find(".intro-mask").exists()).toBe(false);
-    expect(commands.hideMask).toHaveBeenCalledOnce();
+    expect(commands.hideMask).toHaveBeenCalledWith(true);
 
     wrapper.unmount();
     expect(events.size).toBe(0);
@@ -151,7 +243,9 @@ describe("TheMaskPage", () => {
   ])(
     "shows a confirmation on %s and reports the choice after its exit animation",
     async (_name, Page, choice) => {
-      currentWebview.label = _name.startsWith("chaoxing") ? "chaoxing-mask" : "mask";
+      currentWebview.label = _name.startsWith("chaoxing")
+        ? "chaoxing-mask"
+        : "mask";
       const wrapper = mount(Page);
       await flushPromises();
       expect(wrapper.findAll(".mask-layer")).toHaveLength(0);
@@ -168,7 +262,11 @@ describe("TheMaskPage", () => {
       animationCompletions.shift()?.();
       await nextTick();
 
-      expect(emitTo).toHaveBeenCalledWith(currentWebview.label, "confirmation-result", choice);
+      expect(emitTo).toHaveBeenCalledWith(
+        currentWebview.label,
+        "confirmation-result",
+        choice,
+      );
       expect(wrapper.findAll(".mask-layer")).toHaveLength(0);
       wrapper.unmount();
     },

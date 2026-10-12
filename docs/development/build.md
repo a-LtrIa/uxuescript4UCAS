@@ -46,7 +46,7 @@ pnpm install --frozen-lockfile
 启动完整桌面端开发环境：
 
 ```powershell
-pnpm exec tauri dev
+pnpm tauri dev
 ```
 
 只调试 Vue 页面时，可启动 Vite：
@@ -76,16 +76,17 @@ cargo test --locked -p uxs_commands
 
 ```powershell
 # 通用 Tauri 打包构建
-pnpm exec tauri build
+pnpm tauri build
 
-# 发布前从 src-tauri/Cargo.toml 同步版本，再生成 Windows MSI
-pnpm sync:version
-pnpm exec tauri build --bundles msi
+# 构建前自动渲染共享配置，再生成 Windows MSI
+pnpm tauri build --bundles msi
 ```
 
-构建产物默认位于 Cargo workspace 根目录的 `target/release/bundle/`，可执行文件位于 `target/release/`。设置 `CARGO_TARGET_DIR` 时以该目录为准。现有 `pnpm run build:windows` 虽会同步版本并执行 Tauri 构建，但其归档脚本仍查找 `src-tauri/target/release/uxuescript.exe`，与默认 workspace 输出路径不一致；不要将它视为当前可用的默认归档流程。
+构建产物默认位于 Cargo workspace 根目录的 `target/release/bundle/`，可执行文件位于 `target/release/`。设置 `CARGO_TARGET_DIR` 时以该目录为准。`pnpm run build:windows` 在构建后从默认的 `target/release/` 归档便携 EXE。
 
-版本同步以 `src-tauri/Cargo.toml` 为源，更新 `package.json`、`tauri.conf.json`、Rust 元数据与注入脚本的版本提示。发布 CI 由 `v*` 标签触发：先在 Linux 运行前端和应用 Rust 测试，再构建 Windows MSI/便携 EXE 与 macOS ARM64 DMG，验证标签与 Cargo 版本一致，最后发布到 GitHub Release。CI 的便携 EXE 归档直接使用 `target/release/`，不调用上述 Windows 归档脚本。
+Build data lives in `config/build.json`. Edit package.json, Cargo.toml, Tauri configuration, and WXS directly; `pnpm sync:config` updates shared fields using JSON and XML parsers while preserving Cargo dependencies and comments. `pnpm tauri` synchronizes before the CLI reads configuration; run `pnpm sync:config` before invoking Cargo directly. `core.js` remains a standalone JavaScript file, and command bindings and permissions continue to use the existing `uxs_commands` pipeline.
+
+发布 CI 由 `v*` 标签触发：先在 Linux 运行前端和应用 Rust 测试，再构建 Windows MSI/便携 EXE 与 macOS ARM64 DMG，验证标签与 Cargo 版本一致，最后发布到 GitHub Release。CI 的便携 EXE 归档直接使用 `target/release/`，不调用上述 Windows 归档脚本。
 
 发布前至少安装并验证一次生成的安装包，确认开屏动画、课程 WebView 登录、模型配置保存和正常退出均可用。
 
@@ -93,4 +94,4 @@ pnpm exec tauri build --bundles msi
 
 默认数据目录为系统数据目录下的应用标识符 `top.unraous.uxs` 子目录（Windows 通常为 `%APPDATA%\top.unraous.uxs`），配置为 `config.toml`，日志在 `logs/` 下。只有无法取得系统数据目录时，才回退到工作目录的 `uxs-data`。已保存的配置也可包含自定义路径。
 
-设置命令先修改内存配置；点击保存调用 `save_config`，正常窗口关闭也会尝试保存。配置读取或解析失败时回退默认配置；加载旧版本配置只更新版本元数据，不清空用户设置。API Key 的日志格式化输出会脱敏，但配置序列化保留明文；提交配置、日志或打包问题报告前，请检查并移除 API Key、课程信息或其他敏感内容。
+设置命令先修改内存配置；点击保存调用 `save_config`，正常窗口关闭也会尝试保存。配置读取或解析失败时回退默认配置。应用名称读取 Tauri 的 `productName`，版本和作者读取 Tauri 的 `package_info()`；课程首页与 MSI 参数作为 `plugins.uxuescript` 保存在 `tauri.conf.json` 中。应用元数据不从用户 TOML 读取，也不会写入 TOML；日志级别仍可在 TOML 的顶层 `log_level` 中设置，旧 `[metadata].logLevel` 在加载时迁移，其余用户配置保留。API Key 的日志格式化输出会脱敏，但配置序列化保留明文；提交配置、日志或打包问题报告前，请检查并移除 API Key、课程信息或其他敏感内容。

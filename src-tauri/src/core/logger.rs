@@ -32,7 +32,7 @@ pub fn plugin() -> TauriPlugin<Wry> {
             }),
         ])
         .level(log::LevelFilter::Info)
-        .level_for("uxs_lib", CONFIG.metadata.log_level)
+        .level_for("uxs_lib", CONFIG.log_level)
         .level_for(tauri_plugin_log::WEBVIEW_TARGET, log::LevelFilter::Trace)
         .max_file_size(10_000_000)
         .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepAll)

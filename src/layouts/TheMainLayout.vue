@@ -1,19 +1,39 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import TheMenuBar from "@/components/TheMenuBar.vue";
 import TheLeftLayout from "./TheLeftLayout.vue";
 import TheRightLayout from "./TheRightLayout.vue";
-import { onMounted, ref } from "vue";
-import { commands, MetadataConfig } from "@/services/cmds.ts";
+import { onMounted, onUnmounted } from "vue";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
+import type { UnlistenFn } from "@tauri-apps/api/event";
+import appConfig from "../../src-tauri/tauri.conf.json";
 import TheBottomBar from "@/components/TheBottomBar.vue";
+import { useUpdater } from "@/composables/useUpdater";
+import { previewUpdateDownload } from "@/services/updateDownloadPreview";
 
-const metadata = ref<MetadataConfig>({
-  title: "uxs",
-  author: "unraous",
-  version: "x.x.x",
-});
+const { checkForUpdates } = useUpdater();
+const metadata = {
+  title: appConfig.productName,
+  author: appConfig.bundle.publisher,
+  version: appConfig.version,
+};
+
+let unlistenStartup: UnlistenFn | undefined;
 
 onMounted(async () => {
-  metadata.value = await commands.metadata();
+  if (import.meta.env.DEV) {
+    window.previewUpdateDownload = previewUpdateDownload;
+  }
+  unlistenStartup = await getCurrentWebview().once(
+    "startup-finished",
+    () => void checkForUpdates(metadata.version),
+  );
+});
+
+onUnmounted(() => {
+  unlistenStartup?.();
+  if (window.previewUpdateDownload === previewUpdateDownload) {
+    delete window.previewUpdateDownload;
+  }
 });
 </script>
 
@@ -21,7 +41,7 @@ onMounted(async () => {
   <div class="container">
     <TheMenuBar
       class="menu-bar"
-      :app-title="metadata.title!"
+      :app-title="metadata.title"
     />
     <main class="content">
       <TheLeftLayout class="left" />
@@ -29,8 +49,8 @@ onMounted(async () => {
     </main>
     <TheBottomBar
       class="bottom-bar"
-      :author="metadata.author!"
-      :version="metadata.version!"
+      :author="metadata.author"
+      :version="metadata.version"
     />
   </div>
 </template>

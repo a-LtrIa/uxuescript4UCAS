@@ -2,18 +2,7 @@ pub mod llm;
 
 use super::CommandsResult;
 
-use crate::config::{
-    metadata::MetadataConfig, options::OptionsConfig, path::PathsConfig, theme::ThemeName, CONFIG,
-};
-
-/// 获取包含版本及作者信息的应用元数据。
-#[uxs_commands::command]
-pub fn metadata() -> MetadataConfig {
-    log::debug!("正在获取元数据...");
-    let metadata = CONFIG.metadata.clone();
-    log::info!("成功获取元数据: {:?}", metadata);
-    metadata
-}
+use crate::config::{CONFIG, options::OptionsConfig, path::PathsConfig, theme::ThemeName};
 
 /// Return the selected color theme for the main and mask WebViews.
 #[uxs_commands::command(webview = "mask")]
