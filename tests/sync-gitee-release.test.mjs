@@ -41,6 +41,7 @@ beforeEach(async () => {
     badSize: false,
     branch: null,
     feed: null,
+    missingFeedStatus: 200,
     uploadedData: new Map(),
     latestId: 12,
     prerelease: false,
@@ -86,8 +87,8 @@ beforeEach(async () => {
       return reply(state.branch ? 200 : 404, state.branch);
     if (path.endsWith("/contents/latest.json") && req.method === "GET")
       return reply(
-        state.feed ? 200 : 404,
-        state.feed ? { sha: "feed-sha" } : null,
+        state.feed ? 200 : state.missingFeedStatus,
+        state.feed ? { sha: "feed-sha" } : [],
       );
     if (path.endsWith("/tags/v2.1.4"))
       return reply(state.release ? 200 : 404, state.release);
@@ -133,6 +134,7 @@ beforeEach(async () => {
     }
     if (path.endsWith("/contents/latest.json")) {
       expect(data.branch).toBe("updates");
+      expect(req.method).toBe(state.feed ? "PUT" : "POST");
       if (req.method === "PUT") expect(data.sha).toBe("feed-sha");
       state.feed = Buffer.from(data.content, "base64").toString();
       return reply(200, { content: { sha: "feed-sha" } });
@@ -162,6 +164,15 @@ afterEach(async () => {
 });
 
 describe("Gitee Release synchronization", () => {
+  it("creates the manifest when the contents API returns 404", async () => {
+    state.missingFeedStatus = 404;
+    await syncRelease(options);
+    expect(state.calls).toContain(
+      "POST /gitee/repos/unraous/uxuescript/contents/latest.json",
+    );
+    expect(JSON.parse(state.feed).version).toBe(canonical.version);
+  });
+
   it("creates the release, mirrors original packages and publishes a Gitee manifest", async () => {
     await syncRelease(options);
     expect(state.release).toMatchObject({

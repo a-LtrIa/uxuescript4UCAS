@@ -100,7 +100,9 @@ async function publishLatest({
       body: JSON.stringify({ branch_name: "updates", refs: commit }),
     });
   const found = await api(`${base}/contents/latest.json?ref=updates`, {}, true);
-  const current = found ? await found.json() : null;
+  const entry = found ? await found.json() : null;
+  // Gitee returns HTTP 200 with [] when the file does not exist.
+  const current = Array.isArray(entry) && entry.length === 0 ? null : entry;
   await api(`${base}/contents/latest.json`, {
     method: current ? "PUT" : "POST",
     headers: { "Content-Type": "application/json" },
