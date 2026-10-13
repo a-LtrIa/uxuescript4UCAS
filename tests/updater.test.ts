@@ -123,7 +123,7 @@ describe("Updater data sources", () => {
       await server.close();
       rmSync(dir, { recursive: true, force: true });
     }
-  });
+  }, 15000); // 下载刻意限速约 3 秒，给 CI 调度和连接收尾留出时间。
 
   it("serves the current signed MSI directly instead of a legacy ZIP", async () => {
     const dir = mkdtempSync(join(tmpdir(), "uxs-updater-msi-"));
