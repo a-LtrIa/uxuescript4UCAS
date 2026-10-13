@@ -1,6 +1,7 @@
 ﻿import { flushPromises, shallowMount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import TheMainLayout from "@/layouts/TheMainLayout.vue";
+import appConfig from "../src-tauri/tauri.conf.json";
 
 const mocks = vi.hoisted(() => ({
   once: vi.fn(),
@@ -48,7 +49,7 @@ describe("startup update check", () => {
     expect(mocks.check).not.toHaveBeenCalled();
     mocks.finished?.();
     await flushPromises();
-    expect(mocks.check).toHaveBeenCalledWith("2.1.4");
+    expect(mocks.check).toHaveBeenCalledWith(appConfig.version);
     wrapper.unmount();
     expect(mocks.unlisten).toHaveBeenCalledOnce();
   });

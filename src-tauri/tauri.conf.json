@@ -43,7 +43,7 @@
       "icons/icon.ico"
     ]
   },
-  "version": "2.1.4",
+  "version": "2.2.0",
   "plugins": {
     "uxuescript": {
       "homeUrl": "https://i.mooc.chaoxing.com/",
@@ -59,7 +59,8 @@
     },
     "updater": {
       "endpoints": [
-        "https://github.com/unraous/uxuescript/releases/latest/download/latest.json"
+        "https://github.com/unraous/uxuescript/releases/latest/download/latest.json",
+        "https://gitee.com/unraous/uxuescript/raw/updates/latest.json"
       ],
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDY2NDQyODU4QTM3NzU2N0EKUldSNlZuZWpXQ2hFWmlwbkVtWUVPdlhsaGxJc1VBY1V3cUswa2hRQktYYUcrRFBidE9GaGt4eXUK"
     }

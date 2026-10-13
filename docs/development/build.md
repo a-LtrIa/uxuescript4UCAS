@@ -104,7 +104,11 @@ Node 版本统一由根目录 `.node-version` 指定（24.21.0），CI 保留 pn
 
 手动重试：进入 GitHub **Actions → Release → Run workflow**，选择含有最新同步脚本的 `main`，在 `release_tag` 填入已发布标签（例如 `v2.1.4`）。此入口仅同步指定发行版，不重新构建或发布 GitHub。缺少 `GITEE_TOKEN` 时同步任务明确报错；配置后可从此入口重试。
 
-应用自动更新仍使用 GitHub。同步到 Gitee 的 `latest.json` 保留 GitHub 下载地址，Gitee 在本阶段只提供发行版下载镜像。首次真实同步还需确认 Gitee 的附件大小限制和实际上传行为。
+GitHub Actions 构建产物及 `latest.json` 是分发基准。Gitee 接收同一份安装包、更新包和签名；附件上传并验证成功后，CI 将清单中的各平台下载 URL 替换为 Gitee 返回的实际附件地址，再上传 Gitee 版本的 `latest.json`，版本、说明、时间和签名保持一致。
+
+当前最新正式版本的镜像清单同时写入 Gitee 的 `updates` 分支根目录 `latest.json`，公开地址为 `https://gitee.com/unraous/uxuescript/raw/updates/latest.json`。手动重试旧版本或同步预览版不会覆盖该正式版本清单。旧发行版没有 `latest.json` 时只同步原附件。
+
+应用沿用 Tauri updater，`config/build.json` 的 `updater.endpoints` 按 GitHub、Gitee 顺序配置；Gitee 清单的下载地址指向 Gitee 更新包，无需自定义下载切源机制。更新检查与下载阶段分别处理：已选中 GitHub 清单后，下载失败不会自动改用 Gitee。首次真实同步还需确认 Gitee 的附件大小限制和实际上传行为。
 
 发布前至少安装并验证一次生成的安装包，确认开屏动画、课程 WebView 登录、模型配置保存和正常退出均可用。
 

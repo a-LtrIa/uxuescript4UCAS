@@ -235,7 +235,7 @@ jobs:
           path: release
           merge-multiple: true
 
-      - name: Generate updater manifest
+      - name: Generate canonical updater manifest
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

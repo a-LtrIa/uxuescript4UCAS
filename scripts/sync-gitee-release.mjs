@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { createWriteStream, openAsBlob } from "node:fs";
-import { mkdtemp, rm, stat } from "node:fs/promises";
+import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { Readable } from "node:stream";
@@ -59,6 +59,58 @@ async function request(url, { token, ...options } = {}, allowMissing = false) {
       `${options.method ?? "GET"} ${new URL(url).pathname}: HTTP ${response.status}`,
     );
   return response;
+}
+
+export function mirrorManifest(manifest, files) {
+  const mirrored = structuredClone(manifest);
+  for (const platform of Object.values(mirrored.platforms)) {
+    const name = decodeURIComponent(
+      new URL(platform.url).pathname.split("/").at(-1),
+    );
+    const file = files.find((file) => file.name === name);
+    if (!file?.browser_download_url)
+      throw new Error(`Missing mirrored updater package: ${name}`);
+    platform.url = file.browser_download_url;
+  }
+  return mirrored;
+}
+
+async function publishLatest({
+  api,
+  base,
+  githubApi,
+  githubRepo,
+  githubToken,
+  source,
+  commit,
+  content,
+}) {
+  const latest = await (
+    await request(`${githubApi}/repos/${githubRepo}/releases/latest`, {
+      token: githubToken,
+    })
+  ).json();
+  // Manual retries of older releases must not replace the current stable update feed.
+  if (latest.id !== source.id || source.prerelease) return;
+  const branch = await api(`${base}/branches/updates`, {}, true);
+  if (!branch)
+    await api(`${base}/branches`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ branch_name: "updates", refs: commit }),
+    });
+  const found = await api(`${base}/contents/latest.json?ref=updates`, {}, true);
+  const current = found ? await found.json() : null;
+  await api(`${base}/contents/latest.json`, {
+    method: current ? "PUT" : "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      branch: "updates",
+      message: `Update mirror manifest for ${source.tag_name}`,
+      content: Buffer.from(content).toString("base64"),
+      ...(current ? { sha: current.sha } : {}),
+    }),
+  });
 }
 
 export async function syncRelease({
@@ -130,9 +182,17 @@ export async function syncRelease({
     return files;
   }
   const previous = await attachments();
+  const manifestAsset = source.assets.find(
+    (asset) => asset.name === "latest.json",
+  );
+  // Publish the manifest after its referenced packages have been uploaded and verified.
+  const assets = source.assets.filter((asset) => asset !== manifestAsset);
+  if (manifestAsset) assets.push(manifestAsset);
+  const sizes = new Map();
+  let mirroredContent;
   const directory = await mkdtemp(join(tmpdir(), "uxs-gitee-release-"));
   try {
-    for (const asset of source.assets) {
+    for (const asset of assets) {
       // Asset names become local paths, so reject names that escape the temporary directory.
       if (basename(asset.name) !== asset.name || /[\\/]/.test(asset.name))
         throw new Error("Release attachment name must be a filename");
@@ -144,20 +204,48 @@ export async function syncRelease({
       await pipeline(Readable.fromWeb(download.body), createWriteStream(file));
       if ((await stat(file)).size !== asset.size)
         throw new Error(`Downloaded attachment size mismatch: ${asset.name}`);
+      if (asset === manifestAsset) {
+        const manifest = JSON.parse(await readFile(file, "utf8"));
+        mirroredContent =
+          JSON.stringify(
+            mirrorManifest(manifest, await attachments()),
+            null,
+            2,
+          ) + "\n";
+        await writeFile(file, mirroredContent);
+      }
+      const size = (await stat(file)).size;
+      sizes.set(asset.name, size);
       // Download successfully before removing the old attachment, so failed downloads preserve it.
       for (const old of previous.filter((entry) => entry.name === asset.name))
         await api(`${attachmentsUrl}/${old.id}`, { method: "DELETE" });
       const form = new FormData();
       form.set("file", await openAsBlob(file), asset.name);
-      await api(attachmentsUrl, { method: "POST", body: form });
+      const uploaded = await (
+        await api(attachmentsUrl, { method: "POST", body: form })
+      ).json();
+      if (uploaded.size !== size)
+        throw new Error(`Gitee attachment verification failed: ${asset.name}`);
       log(`Uploaded ${asset.name}`);
     }
     const uploaded = await attachments();
     for (const asset of source.assets) {
       const matches = uploaded.filter((file) => file.name === asset.name);
-      if (matches.length !== 1 || matches[0].size !== asset.size)
+      if (matches.length !== 1 || matches[0].size !== sizes.get(asset.name))
         throw new Error(`Gitee attachment verification failed: ${asset.name}`);
     }
+    // Releases created before updater support still mirror their original downloadable assets.
+    if (mirroredContent)
+      await publishLatest({
+        api,
+        base: `${giteeApi}/repos/${giteeRepo}`,
+        githubApi,
+        githubRepo,
+        githubToken,
+        source,
+        commit,
+        content: mirroredContent,
+      });
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

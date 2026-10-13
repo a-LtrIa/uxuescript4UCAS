@@ -8,15 +8,27 @@ import { join } from "node:path";
 import { syncRelease, syncTag } from "../scripts/sync-gitee-release.mjs";
 
 let server, base, options, state, directory;
+const canonical = {
+  version: "2.1.4",
+  notes: "Release notes",
+  pub_date: "2026-10-13T00:00:00Z",
+  platforms: {
+    "windows-x86_64": {
+      url: "https://github.com/unraous/uxuescript/releases/download/v2.1.4/uxs-2.1.4-win-x64.msi",
+      signature: "windows signature",
+    },
+    "darwin-aarch64": {
+      url: "https://github.com/unraous/uxuescript/releases/download/v2.1.4/uxs-2.1.4-mac-arm64.app.tar.gz",
+      signature: "mac signature",
+    },
+  },
+};
 const contents = new Map([
   ["uxs-2.1.4-win-x64.msi", Buffer.from("signed installer")],
   ["uxs-2.1.4-win-x64.msi.sig", Buffer.from("signature")],
-  [
-    "latest.json",
-    Buffer.from(
-      '{"url":"https://github.com/unraous/uxuescript/releases/download/v2.1.4/update.msi"}',
-    ),
-  ],
+  ["uxs-2.1.4-mac-arm64.app.tar.gz", Buffer.from("signed app")],
+  ["uxs-2.1.4-mac-arm64.app.tar.gz.sig", Buffer.from("signature")],
+  ["latest.json", Buffer.from(JSON.stringify(canonical))],
 ]);
 
 beforeEach(async () => {
@@ -27,6 +39,12 @@ beforeEach(async () => {
     calls: [],
     fail: null,
     badSize: false,
+    branch: null,
+    feed: null,
+    uploadedData: new Map(),
+    latestId: 12,
+    prerelease: false,
+    omitManifest: false,
   };
   server = createServer(async (req, res) => {
     const url = new URL(req.url, base);
@@ -40,17 +58,21 @@ beforeEach(async () => {
       return reply(500, { message: "gitee-secret" });
     if (path.startsWith("/github/")) {
       expect(req.headers.authorization).toBe("Bearer github-secret");
+      if (path.endsWith("/releases/latest"))
+        return reply(200, { id: state.latestId });
       return reply(200, {
         id: 12,
         tag_name: "v2.1.4",
         name: "Release title",
         body: "Release notes",
-        prerelease: false,
-        assets: [...contents].map(([name, data]) => ({
-          name,
-          size: data.length,
-          url: `${base}/download/${name}`,
-        })),
+        prerelease: state.prerelease,
+        assets: [...contents]
+          .filter(([name]) => !state.omitManifest || name !== "latest.json")
+          .map(([name, data]) => ({
+            name,
+            size: data.length,
+            url: `${base}/download/${name}`,
+          })),
       });
     }
     if (path.startsWith("/download/")) {
@@ -60,6 +82,13 @@ beforeEach(async () => {
     }
     if (req.headers.authorization !== "Bearer gitee-secret")
       return reply(401, { message: "gitee-secret" });
+    if (path.endsWith("/branches/updates"))
+      return reply(state.branch ? 200 : 404, state.branch);
+    if (path.endsWith("/contents/latest.json") && req.method === "GET")
+      return reply(
+        state.feed ? 200 : 404,
+        state.feed ? { sha: "feed-sha" } : null,
+      );
     if (path.endsWith("/tags/v2.1.4"))
       return reply(state.release ? 200 : 404, state.release);
     if (path.endsWith("/attach_files") && req.method === "GET") {
@@ -81,20 +110,34 @@ beforeEach(async () => {
         body: Buffer.concat(chunks),
       });
       const file = (await request.formData()).get("file");
-      expect(Buffer.from(await file.arrayBuffer())).toEqual(
-        contents.get(file.name),
-      );
+      const data = Buffer.from(await file.arrayBuffer());
+      if (file.name !== "latest.json")
+        expect(data).toEqual(contents.get(file.name));
+      state.uploadedData.set(file.name, data);
       const uploaded = {
         id: state.nextId++,
         name: file.name,
         size: file.size + (state.badSize ? 1 : 0),
+        browser_download_url: `https://gitee.com/unraous/uxuescript/attach_files/${state.nextId - 1}/download`,
       };
       state.files.push(uploaded);
       return reply(201, uploaded);
     }
     const chunks = [];
     for await (const chunk of req) chunks.push(chunk);
-    state.release = { id: 42, ...JSON.parse(Buffer.concat(chunks).toString()) };
+    const data = JSON.parse(Buffer.concat(chunks).toString());
+    if (path.endsWith("/branches")) {
+      expect(data).toEqual({ branch_name: "updates", refs: "a".repeat(40) });
+      state.branch = { name: "updates" };
+      return reply(201, state.branch);
+    }
+    if (path.endsWith("/contents/latest.json")) {
+      expect(data.branch).toBe("updates");
+      if (req.method === "PUT") expect(data.sha).toBe("feed-sha");
+      state.feed = Buffer.from(data.content, "base64").toString();
+      return reply(200, { content: { sha: "feed-sha" } });
+    }
+    state.release = { id: 42, ...data };
     reply(req.method === "POST" ? 201 : 200, state.release);
   });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -119,7 +162,7 @@ afterEach(async () => {
 });
 
 describe("Gitee Release synchronization", () => {
-  it("creates the release and uploads the original assets and manifest", async () => {
+  it("creates the release, mirrors original packages and publishes a Gitee manifest", async () => {
     await syncRelease(options);
     expect(state.release).toMatchObject({
       name: "Release title",
@@ -127,6 +170,23 @@ describe("Gitee Release synchronization", () => {
       target_commitish: "a".repeat(40),
     });
     expect(state.files.map((file) => file.name)).toEqual([...contents.keys()]);
+    const mirrored = JSON.parse(state.uploadedData.get("latest.json"));
+    expect(mirrored).toMatchObject({
+      version: canonical.version,
+      notes: canonical.notes,
+      pub_date: canonical.pub_date,
+    });
+    for (const [target, platform] of Object.entries(canonical.platforms)) {
+      const name = new URL(platform.url).pathname.split("/").at(-1);
+      expect(mirrored.platforms[target]).toEqual({
+        url: state.files.find((file) => file.name === name)
+          .browser_download_url,
+        signature: platform.signature,
+      });
+    }
+    expect(JSON.parse(contents.get("latest.json"))).toEqual(canonical);
+    expect(JSON.parse(state.feed)).toEqual(mirrored);
+    expect(options.log.mock.calls.at(-2)[0]).toBe("Uploaded latest.json");
     expect(options.log).toHaveBeenLastCalledWith(
       "Synchronized Release: https://gitee.com/unraous/uxuescript/releases/tag/v2.1.4",
     );
@@ -136,13 +196,13 @@ describe("Gitee Release synchronization", () => {
     await syncRelease(options);
     state.release.name = "old title";
     state.files.push({ id: 900, name: "manual-notes.txt", size: 3 });
-    const oldIds = state.files.slice(0, 3).map((file) => file.id);
+    const oldIds = state.files.slice(0, contents.size).map((file) => file.id);
     await syncRelease(options);
     expect(state.calls).toContain(
       "PATCH /gitee/repos/unraous/uxuescript/releases/42",
     );
     expect(state.release.name).toBe("Release title");
-    expect(state.files).toHaveLength(4);
+    expect(state.files).toHaveLength(contents.size + 1);
     expect(state.files.some((file) => oldIds.includes(file.id))).toBe(false);
     expect(state.files.find((file) => file.id === 900).name).toBe(
       "manual-notes.txt",
@@ -161,7 +221,7 @@ describe("Gitee Release synchronization", () => {
     expect(
       state.files.filter((file) => file.name === "latest.json"),
     ).toHaveLength(1);
-    expect(state.files).toHaveLength(103);
+    expect(state.files).toHaveLength(100 + contents.size);
   });
 
   it("reports authentication failure without leaking the token or changing metadata", async () => {
@@ -199,7 +259,7 @@ describe("Gitee Release synchronization", () => {
     expect(state.release).not.toBeNull();
     state.fail = null;
     await syncRelease(options);
-    expect(state.files).toHaveLength(3);
+    expect(state.files).toHaveLength(contents.size);
   });
 
   it("rejects an attachment whose remote size differs", async () => {
@@ -207,6 +267,35 @@ describe("Gitee Release synchronization", () => {
     await expect(syncRelease(options)).rejects.toThrow(
       "Gitee attachment verification failed",
     );
+  });
+
+  it("does not overwrite the stable feed when retrying an older release", async () => {
+    state.latestId = 99;
+    state.feed = "existing latest";
+    await syncRelease(options);
+    expect(state.files).toHaveLength(contents.size);
+    expect(state.feed).toBe("existing latest");
+    expect(state.branch).toBeNull();
+  });
+
+  it("does not promote prereleases to the stable feed", async () => {
+    state.prerelease = true;
+    await syncRelease(options);
+    expect(state.feed).toBeNull();
+  });
+
+  it("keeps legacy releases downloadable without requiring an updater manifest", async () => {
+    state.omitManifest = true;
+    await syncRelease(options);
+    expect(state.files).toHaveLength(contents.size - 1);
+    expect(state.feed).toBeNull();
+  });
+
+  it("does not publish a manifest before its packages are verified", async () => {
+    state.badSize = true;
+    await expect(syncRelease(options)).rejects.toThrow("verification failed");
+    expect(state.uploadedData.has("latest.json")).toBe(false);
+    expect(state.feed).toBeNull();
   });
 
   it("stops before modifying Gitee when tag synchronization fails", async () => {
