@@ -26,6 +26,7 @@
       timelineClass: ".ans-timelineobjects",
       quizClass: ".ans-videoquiz",
       quizItemClass: ".tkItem",
+      quizTitleClass: ".tkItem_title",
       quizOptionClass: ".ans-videoquiz-opt",
       quizSubmitId: "#videoquiz-submit",
       quizContinueId: "#videoquiz-continue",
@@ -384,7 +385,7 @@
   };
 
   /**
-   * @typedef {{ answered?: boolean, answerContent?: string, resourceId?: number | string, memberinfo?: string, questionType?: string, options?: { name?: string }[] }} ExtQuizData
+   * @typedef {{ answered?: boolean, answerContent?: string, description?: string, resourceId?: number | string, memberinfo?: string, questionType?: string, options?: { name?: string }[] }} ExtQuizData
    * @typedef {{ style?: string, datas?: ExtQuizData[] }} ExtQuizObject
    * @typedef {{ validationUrl2?: string, objects?: ExtQuizObject[] }} ExtTimeline
    * @typedef {Window & { Ext?: { getCmp?: (id: string) => ExtTimeline | undefined } }} VideoWindow
@@ -477,14 +478,15 @@
     const component = videoWindow?.Ext?.getCmp?.(timeline.id);
     if (!component?.objects?.length) return [];
 
-    const quizObject = component.objects.find(
-      ({ style }) => style === "QUIZ" || style === "InteractiveQuiz",
+    const quizObjects = component.objects.filter(
+      ({ style, datas }) =>
+        (style === "QUIZ" || style === "InteractiveQuiz") && datas?.length,
     );
-    if (!quizObject?.datas?.length) return [];
+    if (!quizObjects.length) return [];
 
     const host = timeline.ownerDocument.location.origin;
     const datas = /** @type {ExtQuizData[]} */ (
-      structuredClone(quizObject.datas)
+      structuredClone(quizObjects.flatMap(({ datas }) => datas))
     );
     for (const quizData of datas) {
       if (!String(quizData.answerContent ?? "").trim()) {
@@ -546,29 +548,32 @@
     }
   };
 
-  /** @type {(taskDoc: Document, videoEl: HTMLMediaElement) => Promise<void>} */
-  const handleInteractiveQuiz = async (taskDoc, videoEl) => {
-    const timeline = await wait.element(
-      null,
-      SELECTORS.video.timelineClass,
-      taskDoc,
-    );
-    const quizDatas = await getInteractiveQuizData(timeline);
-    if (!quizDatas.length) return;
-    const quizRoot = await observeInteractiveQuiz(timeline, videoEl);
-    if (!quizRoot) return;
-
+  /** @type {(quizRoot: HTMLElement, quizDatas: ExtQuizData[]) => Promise<ExtQuizData[]>} */
+  const fillInteractiveQuizItems = async (quizRoot, quizDatas) => {
     const quizItems = await wait.elements(
       null,
       SELECTORS.video.quizItemClass,
       quizRoot,
     );
-
-    for (const [index, quizData] of quizDatas.entries()) {
-      if (quizItems[index])
-        await fillInteractiveQuiz(quizItems[index], quizData);
+    /** @type {ExtQuizData[]} */
+    const filled = [];
+    for (const quizItem of quizItems) {
+      const title = (
+        await wait.element(null, SELECTORS.video.quizTitleClass, quizItem)
+      ).textContent?.trim().replace(/\s+/g, " ");
+      const matches = quizDatas.filter(
+        ({ description }) =>
+          description?.trim().replace(/\s+/g, " ") === title,
+      );
+      assert(matches.length === 1, `互动题题干未唯一匹配：${title}`);
+      await fillInteractiveQuiz(quizItem, matches[0]);
+      filled.push(matches[0]);
     }
+    return filled;
+  };
 
+  /** @type {(quizRoot: HTMLElement) => Promise<void>} */
+  const submitInteractiveQuiz = async (quizRoot) => {
     const submitButton = await wait.element(
       null,
       SELECTORS.video.quizSubmitId,
@@ -590,6 +595,36 @@
         return true;
       });
     }
+  };
+
+  /** @type {(taskDoc: Document, videoEl: HTMLMediaElement) => Promise<void>} */
+  const handleInteractiveQuiz = async (taskDoc, videoEl) => {
+    const timeline = await wait.element(
+      null,
+      SELECTORS.video.timelineClass,
+      taskDoc,
+    );
+    const quizDatas = await getInteractiveQuizData(timeline);
+    console.info(
+      quizDatas.length
+        ? `视频包含 ${quizDatas.length} 道互动题，开始处理`
+        : "视频无互动题",
+    );
+    if (!quizDatas.length) return;
+    const lastQuizData = quizDatas[quizDatas.length - 1];
+    let lastQuizSubmitted = false;
+    while (!lastQuizSubmitted) {
+      const quizRoot = await observeInteractiveQuiz(timeline, videoEl);
+      if (!quizRoot) break;
+      const filled = await fillInteractiveQuizItems(quizRoot, quizDatas);
+      await submitInteractiveQuiz(quizRoot);
+      lastQuizSubmitted = filled.includes(lastQuizData);
+    }
+    console.info(
+      lastQuizSubmitted
+        ? "视频互动题处理完毕，最后一道题已执行提交流程"
+        : "视频已结束，停止处理互动题",
+    );
   };
 
   /** @type {(taskDoc: Document) => Promise<void>} */
