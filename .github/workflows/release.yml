@@ -4,73 +4,25 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing GitHub Release tag to synchronize to Gitee
+        required: true
+        type: string
 
 permissions:
   contents: write
 
 concurrency:
-  group: release-${{ github.ref_name }}
+  group: release-${{ inputs.release_tag || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
   test:
-    name: Run tests
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Check out source
-        uses: actions/checkout@v4
-
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 12.3.4
-
-      - name: Install Linux system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            libwebkit2gtk-4.1-dev \
-            build-essential \
-            curl \
-            wget \
-            file \
-            libxdo-dev \
-            libssl-dev \
-            libgtk-3-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev \
-            patchelf \
-            libfuse2
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22.18.0
-          cache: pnpm
-
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache Rust dependencies and build output
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-rust-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-rust-
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Run frontend tests
-        run: pnpm test -- --run
-
-      - name: Run Rust tests
-        run: cargo test --locked --manifest-path src-tauri/Cargo.toml
+    name: Run checks
+    if: github.event_name == 'push'
+    uses: ./.github/workflows/ci.yml
 
   windows:
     name: Build Windows packages
@@ -89,7 +41,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22.18.0
+          node-version-file: .node-version
           cache: pnpm
 
       - name: Set up Rust
@@ -197,7 +149,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22.18.0
+          node-version-file: .node-version
           cache: pnpm
 
       - name: Set up Rust
@@ -279,7 +231,7 @@ jobs:
       - name: Download release packages
         uses: actions/download-artifact@v4
         with:
-          pattern: '*-release'
+          pattern: "*-release"
           path: release
           merge-multiple: true
 
@@ -327,3 +279,33 @@ jobs:
                 --generate-notes
             fi
           fi
+
+  sync-gitee:
+    name: Mirror Release to Gitee
+    runs-on: ubuntu-latest
+    needs: publish
+    if: >-
+      always() && !cancelled() &&
+      ((github.event_name == 'push' && needs.publish.result == 'success') ||
+       github.event_name == 'workflow_dispatch')
+    permissions:
+      contents: read
+    steps:
+      - name: Check out source and tags
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+
+      - name: Synchronize published Release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+          RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
+          SOURCE_REPO: ${{ github.repository }}
+        run: node scripts/sync-gitee-release.mjs "$SOURCE_REPO" "$RELEASE_TAG" unraous/uxuescript

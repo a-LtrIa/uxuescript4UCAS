@@ -4,15 +4,15 @@
 
 | 组件 | 当前版本 | 用途 |
 | --- | --- | --- |
-| Node.js | `v22.18.0` | 运行 Vite、Vue 类型检查与 Tauri CLI |
+| Node.js | `v24.21.0` | 运行 Vite、Vue 类型检查与 Tauri CLI |
 | pnpm | `12.3.4` | 安装与锁定前端依赖 |
 | Rust / Cargo | `1.97.1` | 编译桌面端与执行 Rust 测试 |
-| `@tauri-apps/cli` | `2.11.4` | 启动开发环境与生成发行包 |
+| `@tauri-apps/cli` | `2.12.1` | 启动开发环境与生成发行包 |
 | `tauri` | `2.11.5` | 桌面端运行时 |
 
 ## Windows 前置条件
 
-安装 Node.js `v22.18.0`、pnpm `12.3.4` 和 Rust `1.97.1`。Windows 还需安装：
+安装 Node.js `v24.21.0`、pnpm `12.3.4` 和 Rust `1.97.1`。Windows 还需安装：
 
 - **Microsoft C++ Build Tools**，并勾选 Desktop development with C++ 工作负载；
 - **WebView2 Evergreen Runtime**。
@@ -27,7 +27,7 @@ cargo --version
 pnpm exec tauri --version
 ```
 
-按上述版本安装时，输出应分别包含 Node.js `v22.18.0`、pnpm `12.3.4`、Rust/Cargo `1.97.1` 与 Tauri CLI `2.11.4`。
+按上述版本安装时，输出应分别包含 Node.js `v24.21.0`、pnpm `12.3.4`、Rust/Cargo `1.97.1` 与 Tauri CLI `2.12.1`。
 
 仓库的 `.cargo/config.toml` 对 `x86_64-pc-windows-msvc` 指定了 `lld-link.exe` 和 `target-cpu=x86-64-v3`。还需确保该链接器可用；生成的 Windows 程序要求支持 x86-64-v3 的处理器。
 
@@ -86,7 +86,25 @@ pnpm tauri build --bundles msi
 
 Build data lives in `config/build.json`. Edit package.json, Cargo.toml, Tauri configuration, and WXS directly; `pnpm sync:config` updates shared fields using JSON and XML parsers while preserving Cargo dependencies and comments. `pnpm tauri` synchronizes before the CLI reads configuration; run `pnpm sync:config` before invoking Cargo directly. `core.js` remains a standalone JavaScript file, and command bindings and permissions continue to use the existing `uxs_commands` pipeline.
 
-发布 CI 由 `v*` 标签触发：先在 Linux 运行前端和应用 Rust 测试，再构建 Windows MSI/便携 EXE 与 macOS ARM64 DMG，验证标签与 Cargo 版本一致，最后发布到 GitHub Release。CI 的便携 EXE 归档直接使用 `target/release/`，不调用上述 Windows 归档脚本。
+Node 版本统一由根目录 `.node-version` 指定（24.21.0），CI 保留 pnpm 12.3.4。`main` 推送和 PR 会运行共享 CI：前端测试、类型检查与生产构建，以及 `cargo test --workspace --locked`，包含 `uxs_commands` 宏 crate。
+
+发布 CI 由 `v*` 标签触发：先调用相同的共享 CI，再构建 Windows MSI/便携 EXE 与 macOS ARM64 DMG，验证标签与 `config/build.json` 同步后的 Cargo 版本一致，最后发布到 GitHub Release 并同步 Gitee。CI 的便携 EXE 归档直接使用 `target/release/`，不调用上述 Windows 归档脚本。
+
+### 发布与 Gitee 镜像
+
+在 GitHub 仓库的 **Settings → Secrets and variables → Actions** 配置：
+
+- `TAURI_SIGNING_PRIVATE_KEY`：与 `config/build.json` 中更新公钥配套的私钥内容。
+- `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`：私钥密码；无密码时可留空。
+- `GITEE_TOKEN`：具有 `unraous/uxuescript` 仓库、标签和发行版写权限的 Gitee 个人令牌（projects 权限）。令牌所属用户为 unraous，同时用于 Git HTTPS 标签推送及 Release API。
+
+发布新版本时修改 `config/build.json` 的版本，运行 `pnpm sync:config`，将同步后的配置提交并推送到 GitHub，再创建并推送同版本的 `v*` 标签。工作流构建一次，GitHub 和 Gitee 使用同一份安装包、更新包和签名；无需在 Gitee 重新构建。
+
+`scripts/sync-gitee-release.mjs` 从已发布的 GitHub Release 读取标题、说明和全部附件，核对 Gitee 标签对应的提交后创建或更新发行版。已有同名附件会被替换，其他附件保留；上传后核对文件名与大小。标签指向不同提交时失败，不强推。同步失败不会撤销 GitHub Release，但同步任务会显示失败。
+
+手动重试：进入 GitHub **Actions → Release → Run workflow**，选择含有最新同步脚本的 `main`，在 `release_tag` 填入已发布标签（例如 `v2.1.4`）。此入口仅同步指定发行版，不重新构建或发布 GitHub。缺少 `GITEE_TOKEN` 时同步任务明确报错；配置后可从此入口重试。
+
+应用自动更新仍使用 GitHub。同步到 Gitee 的 `latest.json` 保留 GitHub 下载地址，Gitee 在本阶段只提供发行版下载镜像。首次真实同步还需确认 Gitee 的附件大小限制和实际上传行为。
 
 发布前至少安装并验证一次生成的安装包，确认开屏动画、课程 WebView 登录、模型配置保存和正常退出均可用。
 
