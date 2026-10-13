@@ -16,6 +16,7 @@ use std::sync::LazyLock;
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(default)]
 pub struct Config {
+    pub version: String,
     pub log_level: log::LevelFilter,
     pub paths: PathsConfig,
     pub options: Mutex<OptionsConfig>,
@@ -26,6 +27,7 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
+            version: env!("CARGO_PKG_VERSION").into(),
             log_level: if cfg!(debug_assertions) {
                 log::LevelFilter::Debug
             } else {
@@ -49,14 +51,35 @@ impl Config {
 
     fn parse(content: &str) -> Result<Self> {
         let mut config: toml::Table = toml::from_str(content)?;
-        // 旧配置把日志级别放在 metadata 中；只迁移日志级别，其余元数据由应用提供。
-        if let Some(level) = config
-            .remove("metadata")
-            .and_then(|metadata| metadata.get("logLevel").cloned())
-        {
+        let metadata = config.remove("metadata");
+        let version_changed = config
+            .get("version")
+            .or_else(|| metadata.as_ref().and_then(|value| value.get("version")))
+            .and_then(toml::Value::as_str)
+            != Some(env!("CARGO_PKG_VERSION"));
+        // 兼容旧 metadata 中的日志级别与版本；未记录版本的配置在首次升级时刷新预设。
+        if let Some(level) = metadata.and_then(|value| value.get("logLevel").cloned()) {
             config.entry("log_level").or_insert(level);
         }
-        Ok(config.try_into()?)
+        let mut config: Self = config.try_into()?;
+        if version_changed {
+            let providers = config.llm.providers.get_mut();
+            for (id, preset) in LLMConfig::default().providers.into_inner() {
+                if let Some(provider) = providers.get_mut(&id)
+                    && !provider.is_custom
+                {
+                    let selected = provider
+                        .chosen_model
+                        .and_then(|index| provider.models.get(index));
+                    provider.chosen_model = selected
+                        .and_then(|name| preset.models.iter().position(|model| model == name))
+                        .or(preset.chosen_model);
+                    provider.models = preset.models;
+                }
+            }
+        }
+        config.version = env!("CARGO_PKG_VERSION").into();
+        Ok(config)
     }
 
     pub fn save(&self) -> Result<()> {
@@ -121,5 +144,118 @@ mod tests {
     fn explicit_log_level_takes_precedence_over_old_metadata() {
         let loaded = Config::parse("log_level = 'Error'\n[metadata]\nlogLevel = 'Warn'").unwrap();
         assert_eq!(loaded.log_level, log::LevelFilter::Error);
+    }
+
+    #[test]
+    fn version_change_refreshes_builtin_models_and_preserves_user_settings() {
+        let mut previous = Config::default();
+        previous.version = "2.1.4".into();
+        *previous.llm.active_provider.get_mut() = "deepseek".into();
+        let providers = previous.llm.providers.get_mut();
+        let provider = providers.get_mut("deepseek").unwrap();
+        provider.api_key = Some(super::llm::ApiKey::new("test-api-key-value".into()).unwrap());
+        provider.base_url = "https://example.com/chat/completions".into();
+        provider.models = vec!["removed-model".into()];
+        provider.chosen_model = Some(0);
+        let mut custom = provider.clone();
+        custom.is_custom = true;
+        custom.name = "My Provider".into();
+        let custom_value = serde_json::to_value(&custom).unwrap();
+        providers.insert("My Provider".into(), custom);
+        let original_key = provider_key(&previous, "deepseek");
+
+        let loaded = Config::parse(&toml::to_string(&previous).unwrap()).unwrap();
+        assert_eq!(loaded.version, env!("CARGO_PKG_VERSION"));
+        assert_eq!(*loaded.llm.active_provider.lock(), "deepseek");
+        assert_eq!(provider_key(&loaded, "deepseek"), original_key);
+        let presets = super::LLMConfig::default();
+        let providers = loaded.llm.providers.lock();
+        for (id, preset) in presets.providers.lock().iter() {
+            assert_eq!(providers[id].models, preset.models);
+            assert_eq!(providers[id].chosen_model, preset.chosen_model);
+        }
+        assert_eq!(
+            providers["deepseek"].base_url,
+            "https://example.com/chat/completions"
+        );
+        assert_eq!(
+            serde_json::to_value(&providers["My Provider"]).unwrap(),
+            custom_value
+        );
+        assert_eq!(
+            providers["bigmodel"].extra_body,
+            presets.providers.lock()["bigmodel"].extra_body
+        );
+    }
+
+    fn provider_key(config: &Config, id: &str) -> Option<super::llm::ApiKey> {
+        config.llm.providers.lock()[id].api_key.clone()
+    }
+
+    #[test]
+    fn version_change_preserves_selected_model_by_name_after_reordering() {
+        let mut previous = Config::default();
+        previous.version = "2.1.4".into();
+        let provider = previous
+            .llm
+            .providers
+            .get_mut()
+            .get_mut("bigmodel")
+            .unwrap();
+        let selected = provider.models[1].clone();
+        provider.models = vec![selected.clone()];
+        provider.chosen_model = Some(0);
+
+        let loaded = Config::parse(&toml::to_string(&previous).unwrap()).unwrap();
+        let providers = loaded.llm.providers.lock();
+        let provider = &providers["bigmodel"];
+        assert_eq!(provider.models[provider.chosen_model.unwrap()], selected);
+        assert_eq!(provider.chosen_model, Some(1));
+    }
+
+    #[test]
+    fn same_version_and_round_trip_do_not_reset_models() {
+        let mut previous = Config::default();
+        let provider = previous.llm.providers.get_mut().get_mut("ollama").unwrap();
+        provider.models = vec!["local-model".into()];
+        provider.chosen_model = Some(0);
+        for _ in 0..2 {
+            previous = Config::parse(&toml::to_string(&previous).unwrap()).unwrap();
+            let providers = previous.llm.providers.lock();
+            assert_eq!(providers["ollama"].models, ["local-model"]);
+            assert_eq!(providers["ollama"].chosen_model, Some(0));
+        }
+    }
+
+    #[test]
+    fn legacy_and_unversioned_configs_refresh_models() {
+        let mut previous = Config::default();
+        previous
+            .llm
+            .providers
+            .get_mut()
+            .get_mut("bigmodel")
+            .unwrap()
+            .models = vec!["old-model".into()];
+        let mut value: toml::Table = toml::from_str(&toml::to_string(&previous).unwrap()).unwrap();
+        value.remove("version");
+        let expected = super::LLMConfig::default().providers.lock()["bigmodel"]
+            .models
+            .clone();
+        let unversioned = Config::parse(&toml::to_string(&value).unwrap()).unwrap();
+        assert_eq!(
+            unversioned.llm.providers.lock()["bigmodel"].models,
+            expected
+        );
+
+        value.insert(
+            "metadata".into(),
+            toml::Value::Table(toml::Table::from_iter([(
+                "version".into(),
+                toml::Value::String("2.1.4".into()),
+            )])),
+        );
+        let legacy = Config::parse(&toml::to_string(&value).unwrap()).unwrap();
+        assert_eq!(legacy.llm.providers.lock()["bigmodel"].models, expected);
     }
 }
