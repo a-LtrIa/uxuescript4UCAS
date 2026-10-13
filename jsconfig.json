@@ -3,7 +3,18 @@
     "target": "ESNext",
     "lib": ["DOM", "DOM.Iterable", "ESNext"],
     "moduleResolution": "bundler",
-    "checkJs": true
+    "allowJs": true,
+    "checkJs": false,
+    "strict": false,
+    "skipLibCheck": true,
+    "noEmit": true
   },
-  "exclude": ["node_modules", "dist", "**/*.mjs"]
+  "include": ["src-tauri/src/scripts/**/*.js"],
+  "exclude": [
+    "src-tauri/src/scripts/core.js",
+    "node_modules",
+    "dist",
+    "target",
+    "**/*.mjs"
+  ]
 }

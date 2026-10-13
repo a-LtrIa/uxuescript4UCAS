@@ -87,6 +87,9 @@ pub fn init_on(window: &tauri::Window, label: &str) -> Result<Webview, Box<dyn s
             .devtools(true)
             .initialization_script(include_str!("../scripts/webview-log.js"))
             .initialization_script_for_all_frames(include_str!("../scripts/iframe-init.js"))
+            .initialization_script_for_all_frames(include_str!(
+                "../scripts/course-list-metadata.js"
+            ))
             .on_navigation(|url| {
                 log::debug!("检测到页面导航: {}", url);
                 classify(url) != Type::Unknown

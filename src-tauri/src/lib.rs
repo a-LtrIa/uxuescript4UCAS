@@ -14,13 +14,12 @@ pub fn run() {
     use commands::mask::Confirmations;
     use commands::updater::DownloadState;
 
-    // 禁用 WebView2 硬件 GPU 加速以降低 100MB+ 内存占用并提升性能
     #[cfg(target_os = "windows")]
     // Set before Tauri starts its worker threads, so no other thread can access the environment concurrently.
     unsafe {
         std::env::set_var(
             "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
-            "--disable-gpu --disable-background-timer-throttling \
+            "--disable-background-timer-throttling \
              --disable-renderer-backgrounding \
              --disable-backgrounding-occluded-windows \
              --disable-background-media-suspend \

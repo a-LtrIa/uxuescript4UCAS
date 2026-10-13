@@ -348,7 +348,8 @@
     const nodes = /** @type {HTMLElement[]} */ (
       Array.from(document.querySelectorAll(SELECTORS.courseTree.nodeClass))
     );
-    if (nodes.length > 0) console.info("获取课程列表成功：", nodes);
+    if (nodes.length > 0)
+      console.info(`获取课程列表成功，共 ${nodes.length} 个章节`);
     else console.error("获取课程列表失败");
 
     return nodes;

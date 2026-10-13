@@ -128,6 +128,12 @@ const showConfirmation = (message: string) => {
   ];
 };
 
+const dismissConfirmation = () => {
+  for (const layer of layers.value) {
+    if (layer.component === Confirmation) layer.onFinished?.(false);
+  }
+};
+
 onMounted(async () => {
   const webview = getCurrentWebview();
   const listeners = [
@@ -148,6 +154,11 @@ onMounted(async () => {
     ),
     webview.listen("update-download-failed", finishUpdateDownload),
   ];
+  if (webview.label === "chaoxing-mask") {
+    listeners.push(
+      webview.listen("confirmation-dismissed", dismissConfirmation),
+    );
+  }
   const ready = await Promise.all(listeners);
   if (isUnmounted) {
     ready.forEach((unlisten) => unlisten());

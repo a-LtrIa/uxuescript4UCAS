@@ -271,4 +271,80 @@ describe("TheMaskPage", () => {
       wrapper.unmount();
     },
   );
+
+  it("dismisses the old Chaoxing confirmation on navigation and allows a new confirmation", async () => {
+    currentWebview.label = "chaoxing-mask";
+    const wrapper = mount(TheChaoxingMaskPage);
+    await flushPromises();
+    events.get("confirmation-pop-up")?.({ payload: "Old page" });
+    await nextTick();
+    expect(wrapper.find('[role="dialog"]').text()).toContain("Old page");
+
+    events.get("confirmation-dismissed")?.();
+    await nextTick();
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false);
+    expect(emitTo).toHaveBeenCalledExactlyOnceWith(
+      "chaoxing-mask",
+      "confirmation-result",
+      false,
+    );
+
+    events.get("confirmation-pop-up")?.({ payload: "New page" });
+    await nextTick();
+    expect(wrapper.find('[role="dialog"]').text()).toContain("New page");
+    await wrapper.findAll("button")[0].trigger("click");
+    animationCompletions.shift()?.();
+    await nextTick();
+    expect(emitTo).toHaveBeenLastCalledWith(
+      "chaoxing-mask",
+      "confirmation-result",
+      true,
+    );
+    wrapper.unmount();
+    expect(events.size).toBe(0);
+  });
+
+  it("kills an unfinished confirmation exit animation when navigation dismisses it", async () => {
+    currentWebview.label = "chaoxing-mask";
+    const wrapper = mount(TheChaoxingMaskPage);
+    await flushPromises();
+    events.get("confirmation-pop-up")?.({ payload: "Old page" });
+    await nextTick();
+    await wrapper.findAll("button")[0].trigger("click");
+    const results = vi.mocked(gsap.timeline).mock.results;
+    const closing = results[results.length - 1]?.value;
+    expect(emitTo).not.toHaveBeenCalled();
+
+    events.get("confirmation-dismissed")?.();
+    await nextTick();
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false);
+    expect(closing.kill).toHaveBeenCalledOnce();
+    expect(emitTo).toHaveBeenCalledExactlyOnceWith(
+      "chaoxing-mask",
+      "confirmation-result",
+      false,
+    );
+    wrapper.unmount();
+  });
+
+  it("does not send a cancellation result when navigation has no pending confirmation", async () => {
+    currentWebview.label = "chaoxing-mask";
+    const wrapper = mount(TheChaoxingMaskPage);
+    await flushPromises();
+    events.get("confirmation-dismissed")?.();
+    await nextTick();
+    expect(emitTo).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
+  it("keeps main-window confirmations independent of Chaoxing navigation", async () => {
+    const wrapper = mount(TheMaskPage);
+    await flushPromises();
+    events.get("confirmation-pop-up")?.({ payload: "Main window" });
+    await nextTick();
+    expect(events.has("confirmation-dismissed")).toBe(false);
+    expect(wrapper.find('[role="dialog"]').text()).toContain("Main window");
+    expect(emitTo).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
 });

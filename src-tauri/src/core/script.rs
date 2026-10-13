@@ -1,4 +1,4 @@
-use super::url::{classify, Type};
+use super::url::{Type, classify};
 
 use crate::app::webview::UrlStack;
 use crate::commands::chaoxing::CourseStatus;
@@ -9,14 +9,19 @@ use tauri::{Emitter, Manager};
 pub fn obtain(t: Type) -> Option<&'static str> {
     match t {
         Type::Course => Some(include_str!("../scripts/core.js")),
-        Type::CourseOverview => Some(include_str!("../scripts/fetch-metadata.js")),
         Type::Login => Some(include_str!("../scripts/click-auto-login.js")),
         _ => None,
     }
 }
 
-/// 负责在页面加载完成后根据 URL 类型注入对应的脚本。
+/// 页面开始导航时结束旧确认框，加载完成后根据 URL 类型注入对应的脚本。
 pub fn load_on(webview: tauri::Webview, payload: tauri::webview::PageLoadPayload) {
+    if let tauri::webview::PageLoadEvent::Started = payload.event() {
+        if let Err(error) = webview.emit_to("chaoxing-mask", "confirmation-dismissed", ()) {
+            log::error!("关闭旧页面确认框失败: {error}");
+        }
+        return;
+    }
     if let tauri::webview::PageLoadEvent::Finished = payload.event() {
         let url_type = classify(payload.url());
         log::debug!("URL \"{}\" 加载完成, 类别: {:?}", payload.url(), url_type);
