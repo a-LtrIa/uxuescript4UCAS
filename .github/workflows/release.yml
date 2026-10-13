@@ -197,7 +197,7 @@ jobs:
           }
           test "$(uname -m)" = "arm64"
           rm -rf target/release/bundle/dmg target/release/bundle/macos
-          pnpm tauri build --bundles dmg
+          pnpm tauri build --bundles app,dmg
 
           mkdir -p release
           DMG="$(find target/release/bundle/dmg -maxdepth 1 -type f -name '*.dmg' | head -n 1)"
