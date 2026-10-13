@@ -390,6 +390,7 @@
    * @typedef {{ validationUrl2?: string, objects?: ExtQuizObject[] }} ExtTimeline
    * @typedef {Window & { Ext?: { getCmp?: (id: string) => ExtTimeline | undefined } }} VideoWindow
    * @typedef {{ isRight?: boolean | number | string }} ExtValidationResult
+   * @typedef {{ element: HTMLElement, data: ExtQuizData }} InteractiveQuizItem
    */
 
   /**
@@ -548,28 +549,39 @@
     }
   };
 
-  /** @type {(quizRoot: HTMLElement, quizDatas: ExtQuizData[]) => Promise<ExtQuizData[]>} */
-  const fillInteractiveQuizItems = async (quizRoot, quizDatas) => {
+  /** @type {(quizRoot: HTMLElement, quizDatas: ExtQuizData[]) => Promise<InteractiveQuizItem[]>} */
+  const matchInteractiveQuizItems = async (quizRoot, quizDatas) => {
     const quizItems = await wait.elements(
       null,
       SELECTORS.video.quizItemClass,
       quizRoot,
     );
-    /** @type {ExtQuizData[]} */
-    const filled = [];
+    /** @type {InteractiveQuizItem[]} */
+    const items = [];
     for (const quizItem of quizItems) {
       const title = (
         await wait.element(null, SELECTORS.video.quizTitleClass, quizItem)
-      ).textContent?.trim().replace(/\s+/g, " ");
+      ).textContent
+        ?.trim()
+        .replace(/\s+/g, " ");
       const matches = quizDatas.filter(
-        ({ description }) =>
-          description?.trim().replace(/\s+/g, " ") === title,
+        ({ description }) => description?.trim().replace(/\s+/g, " ") === title,
       );
       assert(matches.length === 1, `互动题题干未唯一匹配：${title}`);
-      await fillInteractiveQuiz(quizItem, matches[0]);
-      filled.push(matches[0]);
+      items.push({ element: quizItem, data: matches[0] });
     }
-    return filled;
+    return items;
+  };
+
+  /** @type {(items: InteractiveQuizItem[], quizDatas: ExtQuizData[]) => Promise<void>} */
+  const fillInteractiveQuizItems = async (items, quizDatas) => {
+    for (const { element, data } of items) {
+      console.info(
+        `开始处理第 ${quizDatas.indexOf(data) + 1}/${quizDatas.length} 道互动题`,
+        { resourceId: data.resourceId, title: data.description },
+      );
+      await fillInteractiveQuiz(element, data);
+    }
   };
 
   /** @type {(quizRoot: HTMLElement) => Promise<void>} */
@@ -616,9 +628,12 @@
     while (!lastQuizSubmitted) {
       const quizRoot = await observeInteractiveQuiz(timeline, videoEl);
       if (!quizRoot) break;
-      const filled = await fillInteractiveQuizItems(quizRoot, quizDatas);
+      const items = await matchInteractiveQuizItems(quizRoot, quizDatas);
+      await fillInteractiveQuizItems(items, quizDatas);
       await submitInteractiveQuiz(quizRoot);
-      lastQuizSubmitted = filled.includes(lastQuizData);
+      lastQuizSubmitted = items.some(
+        ({ data }) => data.resourceId === lastQuizData.resourceId,
+      );
     }
     console.info(
       lastQuizSubmitted
