@@ -148,8 +148,10 @@ mod tests {
 
     #[test]
     fn version_change_refreshes_builtin_models_and_preserves_user_settings() {
-        let mut previous = Config::default();
-        previous.version = "2.1.4".into();
+        let mut previous = Config {
+            version: "2.1.4".into(),
+            ..Config::default()
+        };
         *previous.llm.active_provider.get_mut() = "deepseek".into();
         let providers = previous.llm.providers.get_mut();
         let provider = providers.get_mut("deepseek").unwrap();
@@ -194,8 +196,10 @@ mod tests {
 
     #[test]
     fn version_change_preserves_selected_model_by_name_after_reordering() {
-        let mut previous = Config::default();
-        previous.version = "2.1.4".into();
+        let mut previous = Config {
+            version: "2.1.4".into(),
+            ..Config::default()
+        };
         let provider = previous
             .llm
             .providers
