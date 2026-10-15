@@ -29,19 +29,9 @@ onMounted(async () => {
       class="settings-container"
     >
       <VToggle
-        :model-value="options.persistSession ?? false"
-        label="Perisist Session"
-        annotation="在应用重新启动后保留课程登录状态。"
-        class="option"
-        @update:model-value="
-          options.persistSession = $event;
-          saveOptions();
-        "
-      />
-      <VToggle
         :model-value="options.muteWebview ?? false"
         label="Mute Course"
-        annotation="静音课程页面播放的声音。"
+        annotation="开启后自动静音课程视频；关闭后按课程页面的音量播放。"
         class="option"
         @update:model-value="
           options.muteWebview = $event;
@@ -51,7 +41,7 @@ onMounted(async () => {
       <VToggle
         :model-value="options.speedLock ?? false"
         label="Lock Playspeed"
-        annotation="锁定当前播放速度，避免课程页面自动修改。"
+        annotation="开启后，视频开始播放时会强制使用下方设置的倍速，并阻止课程页面修改；关闭后由课程页面控制倍速。"
         class="option"
         @update:model-value="
           options.speedLock = $event;
@@ -61,9 +51,9 @@ onMounted(async () => {
       <VInput
         id="playing-speed-input"
         v-model.number="speedValue"
-        placeholder="input number here"
+        placeholder="例如 1.5 或 2"
         label="Playing Speed"
-        annotation="设置课程视频的播放速度。"
+        annotation="填写视频倍速，例如 1.5 或 2。只有开启“Lock Playspeed”后，这个数值才会强制应用。"
         aria-label=""
         class="option speed-input"
         @change="saveOptions"

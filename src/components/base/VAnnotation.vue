@@ -103,6 +103,7 @@ onUnmounted(() => {
   padding: 14px 18px;
   font-size: 1.1rem;
   line-height: 1.45;
+  overflow-wrap: anywhere;
   color: var(--theme-surface);
   background: var(--annotation-background);
   box-shadow: 0 4px 12px color-mix(in srgb, var(--theme-black) 20%, transparent);

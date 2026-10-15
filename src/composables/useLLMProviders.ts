@@ -11,7 +11,7 @@ export function useLLMProviders() {
   );
   const providerData = computed<SelectorData>(() => ({
     label: "Provider",
-    annotation: "选择用于提供语言模型的服务商。",
+    annotation: "从列表选择用于 AI 答题的服务商。点击“New”可添加自定义服务；自定义接口需兼容 OpenAI Chat Completions 格式，并在 Model 中添加该服务支持的模型。",
     selectedIndex: selectedProviderIndex.value,
     mutable: true,
     items: providers.map((provider) => ({
@@ -24,7 +24,7 @@ export function useLLMProviders() {
 
     return {
       label: "Model",
-      annotation: "选择用于课程辅助的语言模型。",
+      annotation: "选择服务商提供的模型。添加自定义模型时，点击“New”并填写服务商控制台中的模型 ID，名称需完全一致，例如 glm-4.7-flash。",
       selectedIndex: provider?.chosenModel ?? 0,
       mutable: provider?.isCustom ?? false,
       items:

@@ -523,6 +523,7 @@
     const datas = /** @type {ExtQuizData[]} */ (
       structuredClone(quizObjects.flatMap(({ datas }) => datas))
     );
+    /** @param {unknown} error */
     const showAnswerFailure = async (error) => {
       const snapshot = {
         timelineId: timeline.id,

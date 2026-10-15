@@ -136,7 +136,6 @@ export type LLMProvider = {
 };
 
 export type OptionsConfig = {
-	persistSession?: boolean,
 	muteWebview?: boolean,
 	speedLock?: boolean,
 	speedValue?: number | null,

@@ -17,7 +17,6 @@
 
 在 **Configuration** 的 **Course** 面板提供以下选项：
 
-- **Perisist Session**：会话保持选项（界面标签如此拼写）。目前仅保存此配置值，尚未接入登录会话保持逻辑。
 - **Mute Course**：静音课程脚本处理的视频，不是整个 WebView 的音频静音开关。
 - **Lock Playspeed**：对课程脚本处理的视频应用并锁定 **Playing Speed** 指定的倍速。
 - **Playing Speed**：填写播放速度数值（默认为 2.0）；只有开启 **Lock Playspeed** 时，脚本才会应用该数值。
