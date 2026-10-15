@@ -40,7 +40,8 @@
       for (const node of document.querySelectorAll("#courseList .course")) {
         const courseId = node.querySelector("input.courseId")?.value;
         const title = node.querySelector(".course-name")?.textContent.trim();
-        const cover = node.querySelector(".course-cover img")?.src;
+        const cover = node.querySelector(".course-cover img")?.src
+          .replace(/\/star3\/.*?\//, "/star3/origin/");
         if (!courseId || !title || !cover) continue;
 
         const previous = sent.get(courseId);

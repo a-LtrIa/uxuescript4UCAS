@@ -8,7 +8,7 @@ const mainOrigin = "https://i.chaoxing.com";
 const frameOrigin = "https://mooc2-ans.chaoxing.com";
 const card = `<div class="course"><input class="courseId" value="265998423">
   <span class="course-name">军事理论课</span><div class="course-cover">
-  <img src="https://p.cldisk.com/star4/d858860c4cef76155b5e62596693ead0/origin.jpg">
+  <img src="https://p.cldisk.com/star3/d858860c4cef76155b5e62596693ead0/cover.jpg">
   </div></div>`;
 
 function page(origin: string, top?: object) {
@@ -62,7 +62,7 @@ describe("MainSpace iframe course metadata", () => {
       courseId: "265998423",
       metadata: {
         title: "军事理论课",
-        cover: "https://p.cldisk.com/star4/d858860c4cef76155b5e62596693ead0/origin.jpg",
+        cover: "https://p.cldisk.com/star3/origin/cover.jpg",
       },
     });
     expect(child.invoke).not.toHaveBeenCalled();

@@ -430,7 +430,7 @@
       candidates.push(optionName);
       if (isMulti) {
         for (const candidate of previous)
-          candidates.push(candidate + optionName);
+          candidates.push(`${candidate},${optionName}`);
       }
     }
     return candidates;
@@ -459,16 +459,49 @@
     host,
   ) => {
     const candidates = getAnswerCandidates(quizData);
-    const results = await Promise.all(
-      candidates.map(async (answerContent) => ({
+    console.info("正在验证互动题候选答案", {
+      resourceId: quizData.resourceId,
+      description: quizData.description,
+      candidateCount: candidates.length,
+      candidates,
+    });
+    let results;
+    try {
+      results = await Promise.all(
+        candidates.map(async (answerContent) => ({
+          answerContent,
+          result: await requestValidation(
+            buildValidationUrl(validationUrl, quizData, answerContent, host),
+          ),
+        })),
+      );
+    } catch (error) {
+      console.error("互动题候选答案验证请求失败", {
+        resourceId: quizData.resourceId,
+        description: quizData.description,
+        candidates,
+      }, error);
+      throw error;
+    }
+    console.info("互动题候选答案验证结果", {
+      resourceId: quizData.resourceId,
+      description: quizData.description,
+      results: results.map(({ answerContent, result }) => ({
         answerContent,
-        result: await requestValidation(
-          buildValidationUrl(validationUrl, quizData, answerContent, host),
-        ),
+        isRight: result.isRight,
       })),
-    );
+    });
     const correct = results.find(({ result }) => result.isRight);
-    if (!correct) throw new Error("互动题验证未返回正确答案");
+    if (!correct) {
+      throw new Error(
+        `互动题验证未返回正确答案（候选数：${candidates.length}）：${JSON.stringify(
+          results.map(({ answerContent, result }) => ({
+            answerContent,
+            isRight: result.isRight,
+          })),
+        )}`,
+      );
+    }
     return correct.answerContent;
   };
 
@@ -490,15 +523,51 @@
     const datas = /** @type {ExtQuizData[]} */ (
       structuredClone(quizObjects.flatMap(({ datas }) => datas))
     );
+    const showAnswerFailure = async (error) => {
+      const snapshot = {
+        timelineId: timeline.id,
+        validationUrl2: component.validationUrl2,
+        objects: quizObjects,
+        quizDatas: datas,
+        error: error instanceof Error ? error.message : String(error),
+      };
+      const details = JSON.stringify(snapshot, null, 2);
+      console.error("互动题答案未能解析，Ext 数据快照：", snapshot);
+      await confirm(`互动题答案获取失败，请检查 Ext 数据：\n\n${details}`);
+    };
+
     for (const quizData of datas) {
-      if (!String(quizData.answerContent ?? "").trim()) {
+      const existingAnswer = String(quizData.answerContent ?? "").trim();
+      if (existingAnswer) {
+        console.info("互动题使用 Ext 中已有答案", {
+          resourceId: quizData.resourceId,
+          description: quizData.description,
+          answerContent: existingAnswer,
+        });
+        continue;
+      }
+
+      try {
         quizData.answerContent = await resolveInteractiveQuizAnswer(
           /** @type {string} */ (component.validationUrl2),
           quizData,
           host,
         );
+      } catch (error) {
+        await showAnswerFailure(error);
+        throw error;
       }
     }
+
+    const unanswered = datas.filter(
+      ({ answerContent }) => !String(answerContent ?? "").trim(),
+    );
+    if (unanswered.length) {
+      const error = new Error(`互动题答案缺失（${unanswered.length} 道）`);
+      await showAnswerFailure(error);
+      throw error;
+    }
+
     return datas;
   };
 
