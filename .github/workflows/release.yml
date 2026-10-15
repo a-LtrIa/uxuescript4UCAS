@@ -217,7 +217,8 @@ jobs:
 
           DMG="release/$ARTIFACT_PREFIX-$VERSION-mac-arm64.dmg"
           hdiutil verify "$DMG"
-          hdiutil attach "$DMG" -readonly -nobrowse -mountpoint "$VERIFY_DIR/dmg"
+          # The image contains the project's license agreement; accept it for CI mounting.
+          hdiutil attach "$DMG" -readonly -nobrowse -mountpoint "$VERIFY_DIR/dmg" <<< 'Y'
           trap 'hdiutil detach "$VERIFY_DIR/dmg"' EXIT
           DMG_APP="$(find "$VERIFY_DIR/dmg" -maxdepth 1 -type d -name '*.app' | head -n 1)"
           test -n "$DMG_APP"
