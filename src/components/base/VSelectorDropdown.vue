@@ -124,6 +124,8 @@ const scaleFeedback = useScaleFeedback({ hoverScale: 1.25 });
 }
 
 .select-option {
+  position: relative;
+  isolation: isolate;
   height: var(--option-height);
   width: 100%;
   box-sizing: border-box;
@@ -132,13 +134,22 @@ const scaleFeedback = useScaleFeedback({ hoverScale: 1.25 });
   align-items: center;
   cursor: pointer;
   user-select: none;
-  transition:
-    background-color 0.15s ease-in-out,
-    color 0.15s ease-in-out;
+  transition: color 0.15s ease-in-out;
 }
 
-.select-option:hover {
+.select-option::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
   background-color: color-mix(in srgb, var(--theme-black) 8%, transparent);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.15s ease-out;
+}
+
+.select-option:hover:not(.is-selected)::before {
+  transform: scaleX(1);
 }
 
 .option-label,
@@ -204,6 +215,10 @@ const scaleFeedback = useScaleFeedback({ hoverScale: 1.25 });
 .select-option.is-selected {
   background-color: var(--theme-brand);
   color: var(--theme-white);
+}
+
+.select-option.is-selected::before {
+  content: none;
 }
 
 .is-selected .option-action {
