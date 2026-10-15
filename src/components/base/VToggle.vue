@@ -6,10 +6,12 @@ import { useScaleFeedback } from "@/composables/useScaleFeedback";
 
 const {
   label,
+  annotation,
   modelValue = false,
   id = useId(),
 } = defineProps<{
   label: string;
+  annotation?: string;
   modelValue?: boolean;
   id?: string;
 }>();
@@ -143,6 +145,7 @@ onUnmounted(() => {
     <VLabel
       :label="label"
       :for="id"
+      :annotation="annotation"
     />
 
     <div class="input-section">

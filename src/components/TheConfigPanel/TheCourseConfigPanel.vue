@@ -31,6 +31,7 @@ onMounted(async () => {
       <VToggle
         :model-value="options.persistSession ?? false"
         label="Perisist Session"
+        annotation="在应用重新启动后保留课程登录状态。"
         class="option"
         @update:model-value="
           options.persistSession = $event;
@@ -40,6 +41,7 @@ onMounted(async () => {
       <VToggle
         :model-value="options.muteWebview ?? false"
         label="Mute Course"
+        annotation="静音课程页面播放的声音。"
         class="option"
         @update:model-value="
           options.muteWebview = $event;
@@ -49,6 +51,7 @@ onMounted(async () => {
       <VToggle
         :model-value="options.speedLock ?? false"
         label="Lock Playspeed"
+        annotation="锁定当前播放速度，避免课程页面自动修改。"
         class="option"
         @update:model-value="
           options.speedLock = $event;
@@ -60,6 +63,7 @@ onMounted(async () => {
         v-model.number="speedValue"
         placeholder="input number here"
         label="Playing Speed"
+        annotation="设置课程视频的播放速度。"
         aria-label=""
         class="option speed-input"
         @change="saveOptions"

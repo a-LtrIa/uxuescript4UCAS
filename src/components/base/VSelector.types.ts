@@ -5,6 +5,7 @@ export type SelectorItem = {
 
 export type SelectorData = {
   label: string;
+  annotation?: string;
   selectedIndex: number;
   mutable: boolean;
   items: SelectorItem[];

@@ -119,6 +119,7 @@ onUnmounted(() => {
     <VLabel
       :label="data.label"
       :for="editTarget !== null ? `${id}-editor` : id"
+      :annotation="data.annotation"
     />
 
     <div

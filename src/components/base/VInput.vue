@@ -6,6 +6,7 @@ import VLabel from "./VLabel.vue";
 const {
   modelValue,
   label,
+  annotation,
   placeholder = "",
   pattern = ".*",
   maskOnBlur,
@@ -14,6 +15,7 @@ const {
 } = defineProps<{
   modelValue: string | number;
   label: string;
+  annotation?: string;
   placeholder?: string;
   pattern?: string;
   maskOnBlur?: boolean;
@@ -31,6 +33,7 @@ const emit = defineEmits(["update:modelValue", "change"]);
       class="label"
       :label="label"
       :for="id"
+      :annotation="annotation"
     />
     <VTextBox
       :id="id"

@@ -11,6 +11,7 @@ export function useLLMProviders() {
   );
   const providerData = computed<SelectorData>(() => ({
     label: "Provider",
+    annotation: "选择用于提供语言模型的服务商。",
     selectedIndex: selectedProviderIndex.value,
     mutable: true,
     items: providers.map((provider) => ({
@@ -23,6 +24,7 @@ export function useLLMProviders() {
 
     return {
       label: "Model",
+      annotation: "选择用于课程辅助的语言模型。",
       selectedIndex: provider?.chosenModel ?? 0,
       mutable: provider?.isCustom ?? false,
       items:

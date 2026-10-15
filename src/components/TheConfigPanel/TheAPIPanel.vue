@@ -65,6 +65,7 @@ const saveApiKey = () =>
       <VInput
         v-model="endpoint"
         label="Endpoint"
+        annotation="设置自定义服务商的 API 接口地址。"
         :disabled="!selectedProvider?.isCustom"
         placeholder="https://api.example.com/v1"
         class="element"
@@ -73,6 +74,7 @@ const saveApiKey = () =>
       <VInput
         v-model="apiKey"
         label="API Key"
+        annotation="设置用于访问当前服务商的 API 密钥。"
         :disabled="!selectedProvider"
         placeholder="Enter API key"
         mask-on-blur
