@@ -210,6 +210,24 @@ jobs:
           test -f "$UPDATER_BUNDLE.sig"
           cp "$UPDATER_BUNDLE.sig" "release/$ARTIFACT_PREFIX-$VERSION-mac-arm64.app.tar.gz.sig"
 
+      - name: Verify macOS package signatures
+        run: |
+          VERIFY_DIR="$(mktemp -d)"
+          mkdir -p "$VERIFY_DIR/dmg" "$VERIFY_DIR/update"
+
+          DMG="release/$ARTIFACT_PREFIX-$VERSION-mac-arm64.dmg"
+          hdiutil verify "$DMG"
+          hdiutil attach "$DMG" -readonly -nobrowse -mountpoint "$VERIFY_DIR/dmg"
+          trap 'hdiutil detach "$VERIFY_DIR/dmg"' EXIT
+          DMG_APP="$(find "$VERIFY_DIR/dmg" -maxdepth 1 -type d -name '*.app' | head -n 1)"
+          test -n "$DMG_APP"
+          codesign --verify --deep --strict --verbose=2 "$DMG_APP"
+
+          tar -xzf "release/$ARTIFACT_PREFIX-$VERSION-mac-arm64.app.tar.gz" -C "$VERIFY_DIR/update"
+          UPDATE_APP="$(find "$VERIFY_DIR/update" -maxdepth 1 -type d -name '*.app' | head -n 1)"
+          test -n "$UPDATE_APP"
+          codesign --verify --deep --strict --verbose=2 "$UPDATE_APP"
+
       - name: Upload macOS package
         uses: actions/upload-artifact@v4
         with:

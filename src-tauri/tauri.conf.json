@@ -20,6 +20,9 @@
     "targets": "all",
     "publisher": "unraous",
     "licenseFile": "../LICENSE",
+    "macOS": {
+      "signingIdentity": "-"
+    },
     "windows": {
       "wix": {
         "fragmentPaths": [
@@ -43,7 +46,7 @@
       "icons/icon.ico"
     ]
   },
-  "version": "2.2.1",
+  "version": "2.2.2",
   "plugins": {
     "uxuescript": {
       "homeUrl": "https://i.mooc.chaoxing.com/",
