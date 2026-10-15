@@ -16,6 +16,7 @@ const emit = defineEmits<{
 const tooltip = ref<HTMLElement | null>(null);
 const tooltipStyle = ref<Record<string, string>>({});
 const positionSide = ref<"left" | "right">("right");
+let positionFrame: number | undefined;
 
 const setPosition = async () => {
   if (!props.visible || !props.anchor) return;
@@ -27,12 +28,13 @@ const setPosition = async () => {
   const rect = element.getBoundingClientRect();
   const margin = 10;
   const gap = 12;
-  positionSide.value =
+  const nextSide =
     triggerRect.right + gap + rect.width <= window.innerWidth - margin
       ? "right"
       : "left";
+  if (positionSide.value !== nextSide) positionSide.value = nextSide;
   const left =
-    positionSide.value === "right"
+    nextSide === "right"
       ? triggerRect.right + gap
       : triggerRect.left - rect.width - gap;
   const top = Math.max(
@@ -42,25 +44,59 @@ const setPosition = async () => {
       window.innerHeight - rect.height - margin,
     ),
   );
-  tooltipStyle.value = {
+  const nextStyle = {
     left: `${Math.max(margin, Math.min(left, window.innerWidth - rect.width - margin))}px`,
     top: `${top}px`,
     "--arrow-y": `${Math.max(12, Math.min(props.anchorY - top, rect.height - 12))}px`,
   };
+  if (
+    Object.entries(nextStyle).some(
+      ([key, value]) => tooltipStyle.value[key] !== value,
+    )
+  ) {
+    tooltipStyle.value = nextStyle;
+  }
+};
+
+const schedulePositionUpdate = () => {
+  if (positionFrame !== undefined) return;
+  positionFrame = requestAnimationFrame(() => {
+    positionFrame = undefined;
+    void setPosition();
+  });
 };
 
 watch(
-  () => [props.anchor, props.anchorY, props.visible] as const,
-  () => void setPosition(),
+  () => [props.anchor, props.anchorY] as const,
+  schedulePositionUpdate,
   { flush: "post" },
 );
 
-const updatePosition = () => void setPosition();
-window.addEventListener("resize", updatePosition);
-window.addEventListener("scroll", updatePosition, true);
+const stopTrackingPosition = () => {
+  window.removeEventListener("resize", schedulePositionUpdate);
+  window.removeEventListener("scroll", schedulePositionUpdate, true);
+  if (positionFrame !== undefined) {
+    cancelAnimationFrame(positionFrame);
+    positionFrame = undefined;
+  }
+};
+
+watch(
+  () => props.visible,
+  (visible) => {
+    if (!visible) {
+      stopTrackingPosition();
+      return;
+    }
+    window.addEventListener("resize", schedulePositionUpdate);
+    window.addEventListener("scroll", schedulePositionUpdate, true);
+    schedulePositionUpdate();
+  },
+  { immediate: true, flush: "post" },
+);
+
 onUnmounted(() => {
-  window.removeEventListener("resize", updatePosition);
-  window.removeEventListener("scroll", updatePosition, true);
+  stopTrackingPosition();
 });
 </script>
 
