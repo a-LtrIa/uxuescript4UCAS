@@ -12,32 +12,54 @@ const openIssues = async () => {
 </script>
 
 <template>
-  <article class="guide-panel" aria-labelledby="guide-title">
-    <h1 id="guide-title" class="title">User Guide</h1>
+  <article
+    class="guide-panel"
+    aria-labelledby="guide-title"
+  >
+    <h1
+      id="guide-title"
+      class="title"
+    >
+      User Guide
+    </h1>
     <div class="guide-content custom-scrollbar">
-      <p>
-        使用前，请在 Configuration 中选择适合的模型供应商与模型，并填写 API
-        Key。
-      </p>
-      <p>
-        随后前往右下角的课程页面，登录并打开目标课程；在弹窗中确认后即可启动。
-      </p>
-      <p>
-        本项目为开源非营利项目，仅供学习与技术交流。请遵守相关平台规则，使用风险和责任由使用者自行承担。
-      </p>
-      <p>
-        当前版本仍处于重构与快速迭代阶段，并非长期稳定版本。遇到问题时，请先确认是否已更新至最新版本。
-      </p>
-      <p>
-        作者并非学习通长期用户，测试课程资源有限，部分特殊课程尚未充分验证，可能存在兼容性问题。若更新至最新版本后问题仍未解决，欢迎在
-        <a
-          href="https://github.com/unraous/uxuescript/issues"
-          @click.prevent="openIssues"
-          >GitHub Issues</a
-        >
-        提交反馈，或联系作者：
-        <a href="mailto:unraous@qq.com">unraous@qq.com</a>。
-      </p>
+      <section aria-labelledby="guide-steps-title">
+        <h2 id="guide-steps-title">操作步骤</h2>
+        <ol>
+          <li>
+            <strong>配置模型：</strong>在 Configuration
+            中选择模型供应商与模型，并填写 API Key。
+          </li>
+          <li>
+            <strong>打开课程：</strong
+            >在右下角的课程页面登录学习通，打开目标课程。
+          </li>
+          <li><strong>确认启动：</strong>在弹窗中确认启动。</li>
+        </ol>
+      </section>
+      <section aria-labelledby="guide-notes-title">
+        <h2 id="guide-notes-title">使用说明</h2>
+        <p>
+          本项目为开源非营利项目，仅供学习与技术交流。请遵守相关平台规则，使用风险和责任由使用者自行承担。
+        </p>
+        <p>当前版本仍处于重构与快速迭代阶段，并非长期稳定版本。</p>
+        <p>
+          作者并非学习通长期用户，测试课程资源有限，部分特殊课程尚未充分验证，可能存在兼容性问题。
+        </p>
+      </section>
+      <section aria-labelledby="guide-feedback-title">
+        <h2 id="guide-feedback-title">问题反馈</h2>
+        <p>
+          遇到问题时，请先更新至最新版本。若问题仍未解决，可在
+          <a
+            href="https://github.com/unraous/uxuescript/issues"
+            @click.prevent="openIssues"
+            >GitHub Issues</a
+          >
+          提交反馈，或通过邮件联系作者：
+          <a href="mailto:unraous@qq.com">unraous@qq.com</a>。
+        </p>
+      </section>
     </div>
   </article>
 </template>
@@ -48,32 +70,65 @@ const openIssues = async () => {
   justify-content: center;
   align-items: center;
   flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  text-align: left;
+  -webkit-text-stroke: 0;
+  /* 全局字体仅提供常规字重，此处允许合成粗体以呈现标题和步骤层级。 */
+  font-synthesis: weight;
 }
 
 .title {
   height: 20%;
   width: 100%;
   font-size: 2rem;
+  font-weight: 700;
   margin-bottom: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
+  color: var(--theme-brand);
 }
 
 .guide-content {
   height: 60%;
   width: 90%;
-  display: flex;
-  flex-direction: column;
-  text-align: center;
-  gap: 16px;
+  min-height: 0;
   padding: 0 10%;
   color: var(--theme-brand);
   font-size: 1.25rem;
   line-height: 1.5;
   overflow-y: auto;
   overscroll-behavior-y: contain;
+  overflow-wrap: anywhere;
   user-select: text;
+}
+
+.guide-content section + section {
+  margin-top: 1rem;
+  padding-top: 1rem;
+}
+
+.guide-content h2 {
+  margin: 0 0 0.5rem;
+  color: var(--theme-brand);
+  font-size: inherit;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.guide-content strong {
+  font-weight: 700;
+}
+
+.guide-content ol {
+  margin: 0;
+  padding-left: 1.5em;
+}
+
+.guide-content li + li,
+.guide-content p + p {
+  margin-top: 0.5rem;
 }
 
 .guide-content p {
@@ -81,6 +136,7 @@ const openIssues = async () => {
 }
 
 .guide-content a {
-  color: inherit;
+  color: var(--theme-brand);
+  text-underline-offset: 0.15em;
 }
 </style>
