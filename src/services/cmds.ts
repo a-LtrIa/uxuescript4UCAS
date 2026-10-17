@@ -167,7 +167,7 @@ export type TaskProgressPayload = {
 	category: string,
 };
 
-export type ThemeName = "gentian" | "delphinium" | "camellia" | "gardenia" | "iris" | "dahlia" | "poppy";
+export type ThemeName = "gentian" | "delphinium" | "camellia" | "gardenia" | "iris" | "dahlia" | "poppy" | "peony" | "wisteria" | "lotus" | "hydrangea";
 
 export type UpdateInfo = {
 	rid: number,

@@ -47,13 +47,16 @@ describe("main interface language", () => {
     expect(flowers().map((item) => item.text())).toContain("Jade Vine");
     await changeLanguage("zh");
     expect(flowers().map((item) => item.text())).toEqual([
-      "青嵐", "翠雀", "山茶", "梔子", "鳶尾", "金蕊", "碧蘿",
+      "青嵐", "翠雀", "山茶", "梔子", "胭脂", "紫藤", "鳶尾", "金蕊", "碧蘿", "蓮華", "繡球",
     ]);
     expect(mocks.setTheme).not.toHaveBeenCalled();
     expect(mocks.emitTo).not.toHaveBeenCalled();
     await wrapper.get("#theme-option-poppy").trigger("click");
     await flushPromises();
     expect(mocks.setTheme).toHaveBeenCalledWith("poppy");
+    await wrapper.get("#theme-option-lotus").trigger("click");
+    await flushPromises();
+    expect(mocks.setTheme).toHaveBeenLastCalledWith("lotus");
     wrapper.unmount();
   });
 

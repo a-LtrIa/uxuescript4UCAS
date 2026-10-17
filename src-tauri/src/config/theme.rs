@@ -12,6 +12,10 @@ pub enum ThemeName {
     Iris,
     Dahlia,
     Poppy,
+    Peony,
+    Wisteria,
+    Lotus,
+    Hydrangea,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]

@@ -46,11 +46,37 @@ export const themes = {
     surfaceLight: "#244039",
     mode: "dark",
   },
+  peony: {
+    brand: "#93475f",
+    surface: "#f2e7e1",
+    surfaceLight: "#fcf6ef",
+    mode: "light",
+  },
+  wisteria: {
+    brand: "#665187",
+    surface: "#e7e5f0",
+    surfaceLight: "#f6f3fa",
+    mode: "light",
+  },
+  lotus: {
+    brand: "#edb5c4",
+    surface: "#2a1e2b",
+    surfaceLight: "#402b3b",
+    mode: "dark",
+  },
+  hydrangea: {
+    brand: "#a5cfee",
+    surface: "#182838",
+    surfaceLight: "#283c50",
+    mode: "dark",
+  },
 } as const;
 
 export type ThemeName = keyof typeof themes;
 export const defaultTheme: ThemeName = "gentian";
-export const themeNames = Object.keys(themes) as ThemeName[];
+export const themeNames = (Object.keys(themes) as ThemeName[]).sort(
+  (left, right) => Number(themes[left].mode === "dark") - Number(themes[right].mode === "dark"),
+);
 
 export interface ThemeColors {
   brand: string;

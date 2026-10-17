@@ -77,7 +77,12 @@ const handleThemeKeydown = (event: KeyboardEvent, index: number) => {
         @pointerdown="scaleFeedback.handlePointerDown"
         @pointerup="scaleFeedback.handlePointerUp"
       >
-        <VRollTransition :value="themeLabel(name)" class="theme-name" aria-hidden="true" v-slot="{ value }">
+        <VRollTransition
+          :value="themeLabel(name)"
+          class="theme-name"
+          aria-hidden="true"
+          v-slot="{ value }"
+        >
           {{ value }}
         </VRollTransition>
       </button>
@@ -104,7 +109,7 @@ const handleThemeKeydown = (event: KeyboardEvent, index: number) => {
 
 .theme-option {
   position: relative;
-  flex: 0 0 33%;
+  flex: 0 0 40%;
   display: grid;
   place-items: center;
   padding: 0;

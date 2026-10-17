@@ -60,6 +60,10 @@ const flowerNames = {
   iris: { en: "Iris", zh: "鳶尾" },
   dahlia: { en: "Dahlia", zh: "金蕊" },
   poppy: { en: "Jade Vine", zh: "碧蘿" },
+  peony: { en: "Peony", zh: "胭脂" },
+  wisteria: { en: "Wisteria", zh: "紫藤" },
+  lotus: { en: "Lotus", zh: "蓮華" },
+  hydrangea: { en: "Hydrangea", zh: "繡球" },
 } satisfies Record<ThemeName, { en: string; zh: string }>;
 
 export function translated(en: string, zh: string): string {
