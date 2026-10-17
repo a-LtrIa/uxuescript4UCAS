@@ -27,9 +27,9 @@ const labels = {
   remove: { en: "Delete", zh: "删除" },
   colorTheme: { en: "Color theme", zh: "配色主题" },
   userGuide: { en: "User Guide", zh: "使用指南" },
-  coursePending: { en: "Course pending", zh: "课程待加载" },
-  chapterPending: { en: "Chapter pending", zh: "章节待加载" },
-  taskPending: { en: "Task pending", zh: "任务点待加载" },
+  coursePending: { en: "Pending . . .", zh: "课程待加载···" },
+  chapterPending: { en: "Chapter not ready", zh: "章节待加载" },
+  taskPending: { en: "Task not ready", zh: "任务点待加载" },
   tasksFinished: { en: "All done", zh: "所有任务点均已完成" },
   videoTask: { en: "Video", zh: "视频" },
   pdfTask: { en: "Document", zh: "文档" },
@@ -44,13 +44,13 @@ const labels = {
 } as const;
 
 const flowerNames = {
-  gentian: { en: "Gentian", zh: "龙胆" },
+  gentian: { en: "Gentian", zh: "青嵐" },
   delphinium: { en: "Delphinium", zh: "翠雀" },
   camellia: { en: "Camellia", zh: "山茶" },
-  gardenia: { en: "Gardenia", zh: "栀子" },
-  iris: { en: "Iris", zh: "鸢尾" },
-  dahlia: { en: "Dahlia", zh: "大丽花" },
-  poppy: { en: "Jade Vine", zh: "翡翠葛" },
+  gardenia: { en: "Gardenia", zh: "梔子" },
+  iris: { en: "Iris", zh: "鳶尾" },
+  dahlia: { en: "Dahlia", zh: "金蕊" },
+  poppy: { en: "Jade Vine", zh: "碧蘿" },
 } satisfies Record<ThemeName, { en: string; zh: string }>;
 
 export function translated(en: string, zh: string): string {

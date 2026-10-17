@@ -47,7 +47,7 @@ describe("main interface language", () => {
     expect(flowers().map((item) => item.text())).toContain("Jade Vine");
     await changeLanguage("zh");
     expect(flowers().map((item) => item.text())).toEqual([
-      "龙胆", "翠雀", "山茶", "栀子", "鸢尾", "大丽花", "翡翠葛",
+      "青嵐", "翠雀", "山茶", "梔子", "鳶尾", "金蕊", "碧蘿",
     ]);
     expect(mocks.setTheme).not.toHaveBeenCalled();
     expect(mocks.emitTo).not.toHaveBeenCalled();
@@ -72,7 +72,7 @@ describe("main interface language", () => {
   it("translates course placeholders and status while preserving titles and ellipsis", async () => {
     const wrapper = mount(TheCourseDashboard);
     await flushPromises();
-    expect(wrapper.get(".placeholder-text").text()).toBe("Course pending···");
+    expect(wrapper.get(".placeholder-text").text()).toBe(label("coursePending"));
     await changeLanguage("zh");
     expect(wrapper.get(".placeholder-text").text()).toBe("课程待加载···");
     expect(wrapper.text()).toContain("章节待加载");

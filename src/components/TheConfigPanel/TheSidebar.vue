@@ -94,7 +94,7 @@ const handleTabKeydown = (event: KeyboardEvent, index: number) => {
 
 <style scoped>
 .sidebar {
-  --item-height: 25%;
+  --item-height: 28%;
   --sidebar-padding: 5%;
 
   position: relative;
