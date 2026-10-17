@@ -8,7 +8,7 @@ function setup(cd: number | null = null, random = 0.5) {
   const context = {
     window: { confirm: vi.fn(), setTimeout },
     console: { info: vi.fn(), error: vi.fn() },
-    Math: { random: () => random },
+    Math: { random: () => random, floor: Math.floor },
     URL,
     fetch,
     api: null as any,
@@ -58,7 +58,7 @@ describe("course cooldown", () => {
     expect(api.fetch).toHaveBeenCalledTimes(1);
     respond({ ok: true, json: async () => ({ isRight: false }) });
     await vi.runAllTimersAsync();
-    await expect(answer).resolves.toBe("B");
+    await expect(answer).resolves.toBe("C");
     expect(api.fetch).toHaveBeenCalledTimes(2);
     expect(api.setTimeout).toHaveBeenCalledTimes(cd === null ? 0 : 2);
   });
@@ -69,6 +69,20 @@ describe("course cooldown", () => {
     await expect(api.resolveInteractiveQuizAnswer("/validate", quiz, "https://example.com"))
       .rejects.toThrow("互动题验证未返回正确答案（候选数：3）");
     expect(api.fetch).toHaveBeenCalledTimes(3);
+  });
+
+  it("shuffles validation order while retaining every multiple-choice candidate", async () => {
+    const api = setup(null, 0);
+    const data = { ...quiz, questionType: "多选题" };
+    const original = JSON.stringify(data);
+    api.fetch.mockResolvedValue({ ok: true, json: async () => ({ isRight: false }) });
+    await expect(api.resolveInteractiveQuizAnswer("/validate", data, "https://example.com"))
+      .rejects.toThrow("候选数：7");
+    const order = api.fetch.mock.calls.map(([url]: [string]) => new URL(url).searchParams.get("answerContent"));
+    const candidates = ["A", "B", "A,B", "C", "A,C", "B,C", "A,B,C"];
+    expect(order).not.toEqual(candidates);
+    expect([...order].sort()).toEqual([...candidates].sort());
+    expect(JSON.stringify(data)).toBe(original);
   });
 
   it("stops on a failed request", async () => {

@@ -472,6 +472,10 @@
     host,
   ) => {
     const candidates = getAnswerCandidates(quizData);
+    for (let index = candidates.length - 1; index > 0; index--) {
+      const target = Math.floor(Math.random() * (index + 1));
+      [candidates[index], candidates[target]] = [candidates[target], candidates[index]];
+    }
     console.info("开始验证互动题候选答案", {
       resourceId: quizData.resourceId,
       description: quizData.description,
