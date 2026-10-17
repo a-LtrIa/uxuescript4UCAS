@@ -1,7 +1,12 @@
 ﻿<script setup lang="ts">
 import { computed, onMounted } from "vue";
 import VSelector from "@/components/base/VSelector.vue";
-import { label, labelLanguage, loadLabelLanguage, setLabelLanguage } from "@/labels";
+import {
+  label,
+  labelLanguage,
+  loadLabelLanguage,
+  setLabelLanguage,
+} from "@/labels";
 import { showError } from "@/services/errors";
 
 const languages = ["en", "zh"] as const;
@@ -20,9 +25,9 @@ const selectLanguage = (index: number) =>
     showError("设置标签语言失败:", cause),
   );
 
-onMounted(() => loadLabelLanguage().catch((cause) =>
-  showError("加载标签语言失败:", cause),
-));
+onMounted(() =>
+  loadLabelLanguage().catch((cause) => showError("加载标签语言失败:", cause)),
+);
 </script>
 
 <template>
@@ -43,6 +48,6 @@ onMounted(() => loadLabelLanguage().catch((cause) =>
   flex-direction: column;
 }
 .option {
-  height: 15%;
+  height: 20%;
 }
 </style>

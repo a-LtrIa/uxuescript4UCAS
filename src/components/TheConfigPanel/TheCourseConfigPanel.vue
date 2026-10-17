@@ -12,7 +12,10 @@ const switchingCd = ref("");
 const saveNumber = (key: "lockSpeed" | "switchingCd", input: string) => {
   const value = input.trim() === "" ? null : Number(input);
   if (value !== null && (!Number.isFinite(value) || value <= 0)) {
-    showError("保存课程配置失败:", new Error("请输入大于零的数字，或留空关闭。"));
+    showError(
+      "保存课程配置失败:",
+      new Error("请输入大于零的数字，或留空关闭。"),
+    );
     return;
   }
   options.value![key] = value;
@@ -82,7 +85,7 @@ onMounted(async () => {
   flex-direction: column;
 }
 .option {
-  height: 15%;
+  height: 20%;
 }
 .speed-input :deep(.input-field) {
   text-align: center;

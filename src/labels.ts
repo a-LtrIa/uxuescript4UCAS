@@ -19,6 +19,7 @@ const labels = {
   tabTheme: { en: "Theme", zh: "主题" },
   tabGeneral: { en: "General", zh: "通用" },
   configSections: { en: "Configuration sections", zh: "设置分类" },
+  configuration: { en: "Configuration", zh: "配置" },
   save: { en: "Save", zh: "保存" },
   cancel: { en: "Cancel", zh: "取消" },
   create: { en: "New", zh: "新增" },
@@ -38,7 +39,7 @@ const labels = {
   dataDirectory: { en: "Logs & Config", zh: "日志/配置目录" },
   languageDescription: {
     en: "认真的，你真的确定要改这个选项吗",
-    zh: "。。。",
+    zh: "好吧，这是你的自由",
   },
 } as const;
 

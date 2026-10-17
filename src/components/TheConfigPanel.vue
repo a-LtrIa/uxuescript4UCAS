@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from "vue";
 import VButton from "@/components/base/VButton.vue";
+import VRollTransition from "@/components/base/VRollTransition.vue";
 import TheAPIPanel from "@/components/TheConfigPanel/TheAPIPanel.vue";
 import TheCourseConfigPanel from "./TheConfigPanel/TheCourseConfigPanel.vue";
 import TheThemePanel from "./TheConfigPanel/TheThemePanel.vue";
@@ -30,6 +31,15 @@ watch(
 
 <template>
   <div class="panel">
+    <h1 class="title">
+      <VRollTransition
+        :value="label('configuration')"
+        class="title-text"
+        v-slot="{ value }"
+      >
+        {{ value }}
+      </VRollTransition>
+    </h1>
     <div class="workspace">
       <TheSidebar
         v-model="configPanel.activeIndex"
@@ -88,10 +98,25 @@ watch(
   flex-direction: column;
 }
 .workspace {
-  height: 80%;
+  height: 70%;
   width: 100%;
   display: flex;
   flex-direction: row;
+}
+.title {
+  height: 10%;
+  width: 100%;
+  font-size: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.title-text {
+  width: 100%;
+  height: 100%;
+}
+.title-text :deep(.roll-item) {
+  justify-content: center;
 }
 .sidebar {
   width: 25%;

@@ -69,7 +69,12 @@ const handleTabKeydown = (event: KeyboardEvent, index: number) => {
           @pointerdown="handlePointerDown"
           @pointerup="handlePointerUp"
         >
-          <VRollTransition :value="item.name" class="menu-text" aria-hidden="true" v-slot="{ value }">
+          <VRollTransition
+            :value="item.name"
+            class="menu-text"
+            aria-hidden="true"
+            v-slot="{ value }"
+          >
             {{ value }}
           </VRollTransition>
         </button>
@@ -89,7 +94,7 @@ const handleTabKeydown = (event: KeyboardEvent, index: number) => {
 
 <style scoped>
 .sidebar {
-  --item-height: 22.5%;
+  --item-height: 25%;
   --sidebar-padding: 5%;
 
   position: relative;
