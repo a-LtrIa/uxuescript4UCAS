@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import VInput from "@/components/base/VInput.vue";
 import VSelector from "@/components/base/VSelector.vue";
+import VButton from "@/components/base/VButton.vue";
 import { useLLMProviders } from "@/composables/useLLMProviders";
 import { commands } from "@/services/cmds";
 import { showError } from "@/services/errors";
@@ -38,6 +39,19 @@ const saveApiKey = () =>
   commands
     .setKey(apiKey.value)
     .catch((cause) => showError("配置命令执行失败:", cause));
+
+const testing = ref(false);
+const testConnection = async () => {
+  testing.value = true;
+  try {
+    await commands.healthy();
+    await commands.confirm(label("connectionSuccess"));
+  } catch (cause) {
+    await showError(label("connectionFailed"), cause);
+  } finally {
+    testing.value = false;
+  }
+};
 </script>
 
 <template>
@@ -82,6 +96,15 @@ const saveApiKey = () =>
         class="element"
         @change="saveApiKey"
       />
+      <div class="element test-button">
+        <VButton
+          :label="label(testing ? 'testing' : 'testConnection')"
+          :disabled="testing || !selectedProvider"
+          class="button-text"
+          style="width: 65%; height: 100%"
+          @click="testConnection"
+        />
+      </div>
     </div>
   </div>
 </template>
@@ -99,14 +122,21 @@ const saveApiKey = () =>
   display: flex;
   flex-direction: column;
   gap: 5%;
+  padding: 0 5%;
   overflow-y: auto;
   overscroll-behavior-y: contain;
 }
 
 .element {
   flex: 0 0 auto;
-  height: 20%;
+  height: 17.5%;
   width: 100%;
+}
+
+.test-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 :deep(.base-config-select:first-child .select-dropdown-wrapper) {

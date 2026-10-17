@@ -6,9 +6,50 @@ pub use status::CourseStatus;
 
 use super::CommandsResult;
 
-use crate::core::quiz::{llm::AnswerItem, solve};
+use crate::config::CONFIG;
+use crate::core::quiz::{
+    Question,
+    llm::{self, AnswerItem},
+    solve,
+};
 
 use tauri::Emitter;
+
+/// 用固定简答题检查当前 API 和模型，成功返回 ok，失败返回具体错误字符串。
+#[uxs_commands::command]
+pub async fn healthy() -> CommandsResult<String> {
+    let active_id = CONFIG.llm.active_provider.lock().clone();
+    let provider = CONFIG
+        .llm
+        .providers
+        .lock()
+        .get(&active_id)
+        .cloned()
+        .ok_or_else(|| anyhow::anyhow!("大模型提供商 [{}] 不存在", active_id))?;
+    let answers = llm::solve(
+        &provider,
+        vec![Question {
+            id: "1".into(),
+            kind: "简答题".into(),
+            stem: "天空为什么是蓝色的？请用一句话回答。".into(),
+            options: Vec::new(),
+        }],
+    )
+    .await
+    .map_err(|error| anyhow::anyhow!("{error:#}"))?;
+    if answers.len() != 1 {
+        return Err(
+            anyhow::anyhow!("健康检查应返回 1 道题的答案，实际返回 {} 道", answers.len()).into(),
+        );
+    }
+    if answers[0].content.trim().is_empty() {
+        return Err(anyhow::anyhow!("健康检查返回的答案为空").into());
+    }
+    Ok("ok".to_owned())
+}
+
+#[cfg(test)]
+mod healthy_tests;
 
 #[uxs_commands::command(webview = "chaoxing")]
 pub async fn solve_quiz(html: String) -> CommandsResult<Vec<AnswerItem>> {

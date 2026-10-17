@@ -48,6 +48,7 @@
     taskPoint: {
       finishedClass: "ans-job-finished",
       containerSelector: ".ans-attach-ct:has(.ans-job-icon)",
+      attachmentSelector: ".ans-attach-ct:has(iframe)",
       iframeTag: "iframe",
     },
     frames: {
@@ -113,9 +114,10 @@
     lockSpeed = null;
     /** @type {number | null} */
     switchingCd = null;
+    quizReview = false;
 
     /**
-     * 调试任务类型列表：列出的类型不跳过已完成任务，并在处理后确认；非空时异常也弹出确认框。
+     * 非空时只处理列出的附件类型，不受任务点标识或完成状态限制，也不等待任务点完成标记；处理后确认，异常时弹窗。
      * @type {Array<"Video" | "PDF" | "Quiz" | "Other">}
      */
     debugTaskTypes = [];
@@ -133,6 +135,7 @@
         this.muteVideo = res.muteWebview ?? this.muteVideo;
         this.lockSpeed = res.lockSpeed ?? null;
         this.switchingCd = res.switchingCd ?? null;
+        this.quizReview = res.quizReview ?? false;
         console.info("配置设置成功：", this);
       } catch (e) {
         console.error("从后端加载配置失败：", e);
@@ -385,16 +388,13 @@
       : "Finished";
   };
 
-  /** @type {(taskDoc: Document) => "Video" | "PDF" | "Quiz"} */
+  /** @type {(taskDoc: Document) => "Video" | "PDF" | "Quiz" | "Other"} */
   const classifyTask = (taskDoc) => {
     const url = taskDoc.location.href;
     if (url.includes(SELECTORS.urls.video)) return "Video";
     if (url.includes(SELECTORS.urls.pdf)) return "PDF";
-    if (url.includes(SELECTORS.urls.quiz)) {
-      assert(config.hasBackend, "未开启后端服务，无法处理Quiz任务点");
-      return "Quiz";
-    }
-    throw new Error(`未识别的任务点类型: ${url}`);
+    if (url.includes(SELECTORS.urls.quiz)) return "Quiz";
+    return "Other";
   };
 
   /**
@@ -493,11 +493,15 @@
         if (result.isRight) return answerContent;
       }
     } catch (error) {
-      console.error("互动题候选答案验证请求失败", {
-        resourceId: quizData.resourceId,
-        description: quizData.description,
-        results,
-      }, error);
+      console.error(
+        "互动题候选答案验证请求失败",
+        {
+          resourceId: quizData.resourceId,
+          description: quizData.description,
+          results,
+        },
+        error,
+      );
       throw error;
     }
     throw new Error(
@@ -970,6 +974,15 @@
       quizDoc,
       "未找到题目提交按钮",
     );
+    if (config.quizReview) {
+      while (
+        !(await confirm(
+          "答案已填写完成，请人工核验后确认是否提交。\n\nYes：立即提交当前答案。\nNo：暂不提交，留出 30 秒检查或修改答案，之后再次弹出本提示。\n\n如需停止脚本，请点击左上角的刷新按钮或 Home。",
+        ))
+      ) {
+        await sleep(30000);
+      }
+    }
     submitBtn.click();
 
     const modal = await wait.element(
@@ -1000,10 +1013,14 @@
 
   /** @type {(chapterDoc: Document) => Promise<void>} */
   const handleTab = async (chapterDoc) => {
+    const debugging = config.debugTaskTypes.length > 0;
     const containers = await wait.elements(
       null,
-      SELECTORS.taskPoint.containerSelector,
+      debugging
+        ? SELECTORS.taskPoint.attachmentSelector
+        : SELECTORS.taskPoint.containerSelector,
       chapterDoc,
+      debugging ? false : "",
     );
     for (const [index, container] of containers.entries()) {
       const taskInfo = `第 ${index + 1}/${containers.length} 个任务点`;
@@ -1023,14 +1040,19 @@
         Video: handleVideo,
         PDF: handlePDF,
         Quiz: handleQuiz, // 依赖tauriInvoke来AI答题
+        Other: null,
       };
       const type = classifyTask(taskDoc);
+      if (debugging && !config.debugTaskTypes.includes(type)) continue;
       await emit.taskProgress(index, type);
       const handler = taskHandler[type];
-      const isFinished = container.classList.contains(
-        SELECTORS.taskPoint.finishedClass,
-      );
-      if (isFinished && !config.debugTaskTypes.includes(type)) {
+      assert(handler, `未识别的任务点类型: ${taskDoc.location.href}`);
+      if (type === "Quiz")
+        assert(config.hasBackend, "未开启后端服务，无法处理Quiz任务点");
+      if (
+        !debugging &&
+        container.classList.contains(SELECTORS.taskPoint.finishedClass)
+      ) {
         console.info(`${taskInfo} 已完成，自动跳过`);
         continue;
       }
@@ -1038,7 +1060,12 @@
       await switchingCooldown();
       await safeRun(
         () =>
-          Promise.all([handler(taskDoc), wait.taskPointComplete(container)]),
+          debugging
+            ? handler(taskDoc)
+            : Promise.all([
+                handler(taskDoc),
+                wait.taskPointComplete(container),
+              ]),
         `${taskInfo} 处理异常，自动跳过，任务点类别：${type}`,
       );
     }
@@ -1165,10 +1192,10 @@
   const main = async () => {
     await config.loadFromBackend();
 
-    const speedInfo = config.lockSpeed != null
-      ? `${config.lockSpeed}x (已锁定)`
-      : "不锁定";
-    const cdInfo = config.switchingCd != null ? `${config.switchingCd}秒 (±25%)` : "已关闭";
+    const speedInfo =
+      config.lockSpeed != null ? `${config.lockSpeed}x (已锁定)` : "不锁定";
+    const cdInfo =
+      config.switchingCd != null ? `${config.switchingCd}秒 (±25%)` : "已关闭";
     const configSummary = `当前配置：[视频倍速: ${speedInfo} | 切换 CD: ${cdInfo} | 自动静音: ${config.muteVideo ? "已开启" : "已关闭"}]`;
 
     const isConfirmed = await confirm(
@@ -1194,8 +1221,12 @@
 
     do {
       await safeRun(() => handleCourse(totalChapterList()), "课程处理失败");
-      await sleep(5000); // 等待章节状态更新；仍有 Blocking 章节时重新扫描课程。
-    } while (blockingCount(totalChapterList()) > 0);
+      if (config.debugTaskTypes.length === 0) await sleep(5000);
+      // debug 只扫描一轮，其他类型的任务未处理时，章节可能一直保持 Blocking。
+    } while (
+      config.debugTaskTypes.length === 0 &&
+      blockingCount(totalChapterList()) > 0
+    );
 
     await emit.finished();
   };

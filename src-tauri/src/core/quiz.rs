@@ -5,6 +5,7 @@ mod typr;
 pub mod llm;
 
 use html::HtmlExtractPayload;
+pub use html::Question;
 use llm::AnswerItem;
 use mapper::decrypt;
 

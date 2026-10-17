@@ -2,6 +2,7 @@
 import { gsap } from "gsap";
 import { onMounted, onUnmounted, ref } from "vue";
 import { useScaleFeedback } from "@/composables/useScaleFeedback";
+import { label, loadLabelLanguage } from "@/labels";
 
 defineProps<{ message: string }>();
 const emit = defineEmits<{ finished: [choice: boolean] }>();
@@ -13,6 +14,7 @@ let animation: gsap.core.Timeline | null = null;
 let closing = false;
 
 onMounted(() => {
+  void loadLabelLanguage().catch((cause) => console.error("加载确认弹窗语言失败:", cause));
   animation = gsap
     .timeline()
     .fromTo(backdrop.value, { opacity: 0 }, { opacity: 1, duration: 0.25 }, 0)
@@ -57,10 +59,14 @@ onUnmounted(() => animation?.kill());
       class="confirmation-dialog"
       role="dialog"
       aria-modal="true"
-      aria-label="Confirmation"
+      :aria-label="label('confirmation')"
     >
-      <h1 class="title">Confirmation</h1>
-      <div class="message custom-scrollbar">{{ message }}</div>
+      <header class="title">
+        <h1>{{ label('confirmation') }}</h1>
+      </header>
+      <div class="message custom-scrollbar">
+        <div class="message-content">{{ message }}</div>
+      </div>
       <div class="actions">
         <button
           type="button"
@@ -104,11 +110,11 @@ onUnmounted(() => animation?.kill());
 
 .confirmation-dialog {
   width: 33%;
-  height: 67%;
+  max-height: 67%;
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
-  padding: 1.5vmin 2vmin 2vmin;
+  padding: 2vmin;
   border-radius: 1.25em;
   /* 两个遮罩的视口不同，以各自视口设置局部字号，子元素用 em 跟随。 */
   font-size: 1.8vmin;
@@ -118,18 +124,11 @@ onUnmounted(() => animation?.kill());
     color-mix(in srgb, var(--theme-black) 25%, transparent);
 }
 
-.title {
-  flex: 0 0 20%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0;
-  font-size: 2em;
-}
-
 .message {
-  flex: 1;
+  flex: 0 1 auto;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
   overflow-y: auto;
   overscroll-behavior-y: contain;
   padding: 0 10%;
@@ -140,8 +139,28 @@ onUnmounted(() => animation?.kill());
   line-height: 1.5;
 }
 
+.message-content {
+  flex: 0 0 auto;
+  margin-block: auto;
+}
+
+.title,
 .actions {
   flex: 0 0 calc(2.5em + 2vmin);
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.title h1 {
+  margin: 0;
+  font-size: 2em;
+}
+
+.actions {
   display: flex;
   align-items: flex-end;
   justify-content: flex-end;

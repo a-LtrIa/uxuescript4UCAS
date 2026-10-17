@@ -49,6 +49,17 @@ onMounted(async () => {
           saveOptions();
         "
       />
+      <VToggle
+        id="quiz-review-toggle"
+        :model-value="options.quizReview ?? false"
+        :label="label('quizReview')"
+        annotation="提交测验前先人工核验答案。点击 Yes 立即提交；点击 No 会留出 30 秒检查或修改答案，再次询问。如需停止脚本，请点击左上角的刷新或 Home。"
+        class="option"
+        @update:model-value="
+          options.quizReview = $event;
+          saveOptions();
+        "
+      />
       <VInput
         id="playing-speed-input"
         v-model="lockSpeed"

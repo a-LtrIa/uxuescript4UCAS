@@ -12,6 +12,17 @@ beforeEach(() => {
 });
 
 describe("optional course settings", () => {
+  it("enables and disables manual quiz review", async () => {
+    const wrapper = mount(TheCourseConfigPanel);
+    await flushPromises();
+    const toggle = wrapper.get("#quiz-review-toggle");
+    expect(toggle.attributes("aria-checked")).toBe("false");
+    await toggle.trigger("click");
+    expect(mocks.setOptions).toHaveBeenLastCalledWith(expect.objectContaining({ quizReview: true }));
+    await toggle.trigger("click");
+    expect(mocks.setOptions).toHaveBeenLastCalledWith(expect.objectContaining({ quizReview: false }));
+    wrapper.unmount();
+  });
   it("loads, updates and clears both numeric settings", async () => {
     const wrapper = mount(TheCourseConfigPanel);
     await flushPromises();

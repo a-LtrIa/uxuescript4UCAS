@@ -19,6 +19,7 @@
           "go_back",
           "go_forward",
           "go_home",
+          "healthy",
           "hide_mask",
           "insert_course_meta_map",
           "is_msi_install",

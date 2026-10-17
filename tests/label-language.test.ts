@@ -39,7 +39,7 @@ describe("label language", () => {
     const selector = general.getComponent(VSelector);
     expect(selector.props("data").label).toBe("Language");
     expect(course.findAll("label").map((item) => item.text())).toEqual([
-      "Mute Video", "Speed Lock", "Delay",
+      "Mute Video", "Review Answers", "Speed Lock", "Delay",
     ]);
     const placeholders = course.findAll("input").map((input) => input.attributes("placeholder"));
     const annotations = course.findAll("label").map((item) => item.attributes("aria-describedby"));
@@ -47,13 +47,13 @@ describe("label language", () => {
     await flushPromises();
     expect(mocks.setGeneral).toHaveBeenLastCalledWith({ labelLanguage: "zh" });
     expect(selector.props("data").label).toBe("语言");
-    expect(course.findAll(".label-roll .roll-in.roll-active")).toHaveLength(3);
+    expect(course.findAll(".label-roll .roll-in.roll-active")).toHaveLength(4);
     expect(course.findAll("label").map((item) => item.attributes("aria-label"))).toEqual([
-      "自动静音", "锁定倍速", "等待时间",
+      "自动静音", "人工核验", "锁定倍速", "等待时间",
     ]);
     await vi.advanceTimersByTimeAsync(300);
     expect(course.findAll("label").map((item) => item.text())).toEqual([
-      "自动静音", "锁定倍速", "等待时间",
+      "自动静音", "人工核验", "锁定倍速", "等待时间",
     ]);
     expect(course.findAll("input").map((input) => input.attributes("placeholder"))).toEqual(placeholders);
     expect(course.findAll("label").map((item) => item.attributes("aria-describedby"))).toEqual(annotations);

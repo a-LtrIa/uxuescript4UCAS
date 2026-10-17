@@ -5,7 +5,7 @@ use super::CommandsResult;
 use crate::config::general::GeneralConfig;
 use crate::config::{CONFIG, options::OptionsConfig, path::PathsConfig, theme::ThemeName};
 
-#[uxs_commands::command]
+#[uxs_commands::command(webview = "mask")]
 pub fn general() -> GeneralConfig {
     *CONFIG.general.lock()
 }

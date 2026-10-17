@@ -32,6 +32,7 @@ vi.mock("@tauri-apps/api/webview", () => ({
 
 vi.mock("@/services/cmds", () => ({
   commands: {
+    general: vi.fn(async () => ({ labelLanguage: "en" })),
     showContent: vi.fn(async () => {}),
     hideMask: vi.fn(async () => {}),
     cancelUpdateDownload: vi.fn(async () => true),
@@ -77,6 +78,18 @@ afterEach(() => {
 });
 
 describe("TheMaskPage", () => {
+  it.each([TheMaskPage, TheChaoxingMaskPage])("uses the saved Chinese confirmation title", async (Page) => {
+    vi.mocked(commands.general).mockResolvedValueOnce({ labelLanguage: "zh" });
+    const wrapper = mount(Page);
+    await flushPromises();
+    events.get("confirmation-pop-up")?.({ payload: "测试消息" });
+    await flushPromises();
+    const dialog = wrapper.get('[role="dialog"]');
+    expect(dialog.get("h1").text()).toBe("确认");
+    expect(dialog.attributes("aria-label")).toBe("确认");
+    wrapper.unmount();
+  });
+
   it("shows a cancel-only updater dialog with the course progress bar", async () => {
     const wrapper = mount(TheMaskPage);
     await flushPromises();

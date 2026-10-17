@@ -6,6 +6,7 @@
         "allow": [
           "cancel_update_download",
           "current_theme",
+          "general",
           "hide_mask",
           "show_content"
         ],
