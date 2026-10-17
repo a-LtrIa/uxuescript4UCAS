@@ -37,8 +37,8 @@ const labels = {
   coursePage: { en: "Course", zh: "课程页面" },
   dataDirectory: { en: "Logs & Config", zh: "日志/配置目录" },
   languageDescription: {
-    en: "Choose the UI language. Course names stay unchanged.",
-    zh: "选择界面的显示语言，课程和章节名称保留原文。",
+    en: "认真的，你真的确定要改这个选项吗",
+    zh: "。。。",
   },
 } as const;
 
