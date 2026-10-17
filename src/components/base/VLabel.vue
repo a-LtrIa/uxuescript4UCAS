@@ -1,6 +1,7 @@
 ﻿<script setup lang="ts">
 import { onUnmounted, ref, useAttrs, useId } from "vue";
 import VAnnotation from "./VAnnotation.vue";
+import VRollTransition from "./VRollTransition.vue";
 
 defineOptions({ inheritAttrs: false });
 
@@ -56,6 +57,7 @@ onUnmounted(() => {
     v-bind="attrs"
     class="label-text"
     :for="htmlFor"
+    :aria-label="label"
     :tabindex="annotation ? 0 : undefined"
     :aria-describedby="annotation ? id : undefined"
     @focus="focusLabel"
@@ -63,10 +65,14 @@ onUnmounted(() => {
   >
     <span
       ref="textElement"
+      class="label-content"
+      aria-hidden="true"
       @pointerenter="show"
       @pointerleave="scheduleHide"
     >
-      {{ label }}
+      <VRollTransition :value="label" class="label-roll" v-slot="{ value }">
+        {{ value }}
+      </VRollTransition>
     </span>
   </label>
 
@@ -87,6 +93,7 @@ onUnmounted(() => {
   position: relative;
   flex-shrink: 0;
   width: 40%;
+  height: 100%;
   text-align: center;
   display: flex;
   justify-content: center;
@@ -95,5 +102,24 @@ onUnmounted(() => {
   color: var(--theme-brand);
   letter-spacing: 1px;
   outline-color: var(--theme-brand);
+}
+
+.label-content,
+.label-roll {
+  width: 100%;
+  height: 100%;
+}
+
+.label-content {
+  display: block;
+}
+
+.label-roll {
+  /* size 容器不会被文字撑高，label 的父级居中布局也可能没有确定高度。 */
+  min-height: 1.5em;
+}
+
+.label-roll :deep(.roll-item) {
+  justify-content: center;
 }
 </style>

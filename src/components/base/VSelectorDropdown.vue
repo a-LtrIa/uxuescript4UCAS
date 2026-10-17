@@ -4,6 +4,8 @@ import EditIcon from "@/assets/edit.svg?component";
 import NewIcon from "@/assets/new.svg?component";
 import { useScaleFeedback } from "@/composables/useScaleFeedback";
 import type { SelectorItem } from "./VSelector.types";
+import VRollTransition from "./VRollTransition.vue";
+import { label } from "@/labels";
 
 const { data, methods } = defineProps<{
   data: {
@@ -46,7 +48,7 @@ const scaleFeedback = useScaleFeedback({ hoverScale: 1.25 });
           <button
             type="button"
             class="option-action"
-            :aria-label="`Edit ${item.label}`"
+            :aria-label="`${label('edit')} ${item.label}`"
             @click="methods.edit(index)"
             @pointerenter="scaleFeedback.handlePointerEnter"
             @pointerleave="scaleFeedback.handlePointerLeave"
@@ -59,7 +61,7 @@ const scaleFeedback = useScaleFeedback({ hoverScale: 1.25 });
           <button
             type="button"
             class="option-action is-danger"
-            :aria-label="`Delete ${item.label}`"
+            :aria-label="`${label('remove')} ${item.label}`"
             @click="methods.remove(index)"
             @pointerenter="scaleFeedback.handlePointerEnter"
             @pointerleave="scaleFeedback.handlePointerLeave"
@@ -78,14 +80,16 @@ const scaleFeedback = useScaleFeedback({ hoverScale: 1.25 });
         <button
           type="button"
           class="option-label option-create"
-          aria-label="New"
+          :aria-label="label('create')"
           @click="methods.create"
         >
           <NewIcon
             class="action-icon create-icon"
             aria-hidden="true"
           />
-          <span>New</span>
+          <VRollTransition :value="label('create')" class="create-text" aria-hidden="true" v-slot="{ value }">
+            {{ value }}
+          </VRollTransition>
         </button>
       </li>
     </ul>
@@ -93,6 +97,11 @@ const scaleFeedback = useScaleFeedback({ hoverScale: 1.25 });
 </template>
 
 <style scoped>
+.create-text {
+  flex: 1;
+  height: 1.5em;
+}
+
 .select-dropdown-wrapper {
   position: absolute;
   top: 100%;

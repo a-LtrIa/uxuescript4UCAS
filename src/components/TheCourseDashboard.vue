@@ -13,6 +13,7 @@ import TheCourseCover from "./TheCourseCover.vue";
 import TheCourseProgressBar from "./TheCourseProgressBar.vue";
 import VRollTransition from "@/components/base/VRollTransition.vue";
 import { showError } from "@/services/errors";
+import { label, translated } from "@/labels";
 
 interface CourseInfo {
   state: "loading" | "executing" | "finished";
@@ -24,8 +25,8 @@ interface CourseInfo {
 
 const initialCourseInfo = (): CourseInfo => ({
   state: "loading",
-  metadata: { title: "课程待加载", cover: "" },
-  chapter: { title: "章节待加载", index: 0, completed: 0, total: 0 },
+  metadata: { title: "", cover: "" },
+  chapter: { title: "", index: 0, completed: 0, total: 0 },
   tab: { index: 0, total: 0 },
   task: { index: 0, category: "" },
 });
@@ -37,14 +38,23 @@ const chapterProgress = computed(() => {
   return total > 0 ? Math.round((completed / total) * 100) : 0;
 });
 
-let taskInfoText = computed(() => {
+const taskInfoText = computed(() => {
   switch (courseInfo.value.state) {
     case "loading":
-      return "任务点待加载";
-    case "executing":
-      return `本章节第 ${courseInfo.value.tab.index + 1} - ${courseInfo.value.task.index + 1} 任务点：${courseInfo.value.task.category ?? ""}`;
+      return label("taskPending");
+    case "executing": {
+      const tab = courseInfo.value.tab.index + 1;
+      const task = courseInfo.value.task.index + 1;
+      const category = courseInfo.value.task.category;
+      const categories: Record<string, string> = {
+        Video: label("videoTask"), PDF: label("pdfTask"),
+        Quiz: label("quizTask"), Other: label("otherTask"),
+      };
+      const name = categories[category] ?? category;
+      return translated(`Tab ${tab}, task ${task}: ${name}`, `本章节第 ${tab} - ${task} 任务点：${name}`);
+    }
     default:
-      return "所有任务点均已完成";
+      return label("tasksFinished");
   }
 });
 
@@ -111,7 +121,7 @@ onUnmounted(() => {
       <div class="info">
         <VRollTransition
           v-slot="{ value }"
-          :value="courseInfo.metadata.title"
+          :value="courseInfo.metadata.title || label('coursePending')"
           class="text-displayer"
           style="font-size: 2rem"
         >
@@ -119,7 +129,7 @@ onUnmounted(() => {
         </VRollTransition>
         <VRollTransition
           v-slot="{ value }"
-          :value="courseInfo.chapter.title"
+          :value="courseInfo.chapter.title || label('chapterPending')"
           class="text-displayer"
           style="font-size: 1.5rem"
         >

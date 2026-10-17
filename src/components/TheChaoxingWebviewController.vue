@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { label } from "@/labels";
 import ZoomInIcon from "@/assets/zoom_in.svg?component";
 import ZoomOutIcon from "@/assets/zoom_out.svg?component";
 import ArrowIcon from "@/assets/arrow_forward.svg?component";
@@ -189,11 +190,22 @@ onUnmounted(() => {
       />
     </div>
     <div class="title">
-      <p>课程页面</p>
+      <VRollTransition :value="label('coursePage')" class="page-title" v-slot="{ value }">
+        {{ value }}
+      </VRollTransition>
     </div>
   </div>
 </template>
 <style scoped>
+.page-title {
+  width: 100%;
+  height: 1.5em;
+}
+
+.page-title :deep(.roll-item) {
+  justify-content: center;
+}
+
 .body {
   background-color: var(--theme-brand);
   display: flex;

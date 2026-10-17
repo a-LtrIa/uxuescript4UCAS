@@ -4,6 +4,7 @@ import SaveIcon from "@/assets/save.svg?component";
 import CancelIcon from "@/assets/cancel.svg?component";
 import { useScaleFeedback } from "@/composables/useScaleFeedback";
 import VTextBox from "./VTextBox.vue";
+import { label } from "@/labels";
 
 const { data, methods } = defineProps<{
   data: { active: boolean; draft: string; id: string };
@@ -54,7 +55,7 @@ const handleSavePointerEnter = (event: PointerEvent) => {
       >
         <button
           type="button"
-          aria-label="Save"
+          :aria-label="label('save')"
           :disabled="!canSave"
           @click.stop="methods.save"
           @pointerdown="keepEditorFocused"
@@ -68,7 +69,7 @@ const handleSavePointerEnter = (event: PointerEvent) => {
         </button>
         <button
           type="button"
-          aria-label="Cancel"
+          :aria-label="label('cancel')"
           @click.stop="methods.cancel"
           @pointerenter="scaleFeedback.handlePointerEnter"
           @pointerleave="scaleFeedback.handlePointerLeave"

@@ -1,16 +1,23 @@
 <script setup lang="ts">
-import { reactive, ref, watch } from "vue";
+import { computed, reactive, ref, watch } from "vue";
 import VButton from "@/components/base/VButton.vue";
 import TheAPIPanel from "@/components/TheConfigPanel/TheAPIPanel.vue";
 import TheCourseConfigPanel from "./TheConfigPanel/TheCourseConfigPanel.vue";
 import TheThemePanel from "./TheConfigPanel/TheThemePanel.vue";
+import TheGeneralPanel from "./TheConfigPanel/TheGeneralPanel.vue";
 import TheSidebar from "./TheConfigPanel/TheSidebar.vue";
 import { commands } from "@/services/cmds";
+import { label } from "@/labels";
 
 const configPanel = reactive({
   activeIndex: 0,
-  items: [{ name: "API" }, { name: "Course" }, { name: "Theme" }],
 });
+const sidebarItems = computed(() => [
+  { name: label("tabApi") },
+  { name: label("tabCourse") },
+  { name: label("tabTheme") },
+  { name: label("tabGeneral") },
+]);
 const transitionName = ref("config-content-up");
 watch(
   () => configPanel.activeIndex,
@@ -26,7 +33,7 @@ watch(
     <div class="workspace">
       <TheSidebar
         v-model="configPanel.activeIndex"
-        :items="configPanel.items"
+        :items="sidebarItems"
         class="sidebar"
       />
       <div class="container">
@@ -54,11 +61,19 @@ watch(
             v-show="configPanel.activeIndex === 2"
             class="config-panel-content"
         /></Transition>
+        <Transition :name="transitionName"
+          ><TheGeneralPanel
+            id="config-panel-3"
+            role="tabpanel"
+            aria-labelledby="config-tab-3"
+            v-show="configPanel.activeIndex === 3"
+            class="config-panel-content"
+        /></Transition>
       </div>
     </div>
     <div class="save-button">
       <VButton
-        label="Save"
+        :label="label('save')"
         class="button-text"
         style="width: 35%; height: 60%"
         @click="commands.saveConfig"

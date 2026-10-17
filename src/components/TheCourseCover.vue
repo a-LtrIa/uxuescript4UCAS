@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { label } from "@/labels";
+import VRollTransition from "@/components/base/VRollTransition.vue";
 defineProps<{
   coverSrc: string;
 }>();
@@ -34,7 +36,9 @@ defineProps<{
         key="placeholder"
         class="cover-placeholder"
       >
-        <span class="placeholder-text">课程待加载···</span>
+        <VRollTransition :value="`${label('coursePending')}···`" class="placeholder-text" v-slot="{ value }">
+          {{ value }}
+        </VRollTransition>
       </div>
     </Transition>
   </div>
@@ -109,10 +113,17 @@ defineProps<{
 }
 
 .placeholder-text {
+  width: 90%;
+  height: 3em;
   font-size: 2rem;
   letter-spacing: 1px;
   text-shadow: 0 5px 2px
     color-mix(in srgb, var(--theme-black) 70%, transparent);
+}
+
+.placeholder-text :deep(.roll-item) {
+  justify-content: center;
+  text-align: center;
 }
 
 /* 交叉渐变动画：旧元素淡出的同时新元素直接在其上淡入，无空白间隙 */

@@ -3,6 +3,8 @@ import FolderCodeIcon from "@/assets/folder-code.svg?component";
 import { useScaleFeedback } from "@/composables/useScaleFeedback";
 import { commands } from "@/services/cmds";
 import { openPath } from "@tauri-apps/plugin-opener";
+import { label } from "@/labels";
+import VRollTransition from "@/components/base/VRollTransition.vue";
 
 defineProps<{
   version: string;
@@ -26,6 +28,7 @@ const openDataDirectory = async () => {
     <button
       type="button"
       class="directory-entry"
+      :aria-label="label('dataDirectory')"
       @click="openDataDirectory"
       @pointerenter="scaleFeedback.handlePointerEnter"
       @pointerleave="scaleFeedback.handlePointerLeave"
@@ -33,7 +36,9 @@ const openDataDirectory = async () => {
       @pointerup="scaleFeedback.handlePointerUp"
     >
       <FolderCodeIcon class="directory-icon" />
-      <span>日志/配置目录</span>
+      <VRollTransition :value="label('dataDirectory')" class="directory-text" aria-hidden="true" v-slot="{ value }">
+        {{ value }}
+      </VRollTransition>
     </button>
     <div class="version-info">
       <p>by {{ author }} v{{ version }}</p>
@@ -42,6 +47,11 @@ const openDataDirectory = async () => {
 </template>
 
 <style scoped>
+.directory-text {
+  width: 20ch;
+  height: 1.5em;
+}
+
 .bottom-bar {
   background-color: transparent;
   display: flex;

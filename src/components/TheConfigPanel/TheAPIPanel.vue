@@ -5,6 +5,7 @@ import VSelector from "@/components/base/VSelector.vue";
 import { useLLMProviders } from "@/composables/useLLMProviders";
 import { commands } from "@/services/cmds";
 import { showError } from "@/services/errors";
+import { label } from "@/labels";
 
 const {
   providerData,
@@ -64,7 +65,7 @@ const saveApiKey = () =>
       />
       <VInput
         v-model="endpoint"
-        label="Endpoint"
+        :label="label('endpoint')"
         annotation="填写完整的请求地址，而不只是域名或 /v1 根路径。例如：https://api.example.com/v1/chat/completions。自定义服务需兼容 OpenAI Chat Completions 格式。"
         :disabled="!selectedProvider?.isCustom"
         placeholder="https://api.example.com/v1/chat/completions"
@@ -73,7 +74,7 @@ const saveApiKey = () =>
       />
       <VInput
         v-model="apiKey"
-        label="API Key"
+        :label="label('apiKey')"
         annotation="粘贴服务商控制台生成的 API Key，不要添加“Bearer ”前缀，程序会自动处理。需要鉴权的服务必须填写；密钥需至少 12 个 ASCII 字符。"
         :disabled="!selectedProvider"
         placeholder="Enter API key"

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { nextTick } from "vue";
 import { useScaleFeedback } from "@/composables/useScaleFeedback";
+import VRollTransition from "@/components/base/VRollTransition.vue";
+import { label } from "@/labels";
 
 const { items, modelValue } = defineProps<{
   items: { name: string }[];
@@ -45,15 +47,16 @@ const handleTabKeydown = (event: KeyboardEvent, index: number) => {
       <div
         class="menu-layer"
         role="tablist"
-        aria-label="Configuration sections"
+        :aria-label="label('configSections')"
         aria-orientation="vertical"
       >
         <button
           v-for="(item, index) in items"
-          :key="item.name"
+          :key="index"
           :id="tabId(index)"
           type="button"
           role="tab"
+          :aria-label="item.name"
           :aria-controls="panelId(index)"
           :aria-selected="modelValue === index"
           :tabindex="modelValue === index ? 0 : -1"
@@ -66,7 +69,9 @@ const handleTabKeydown = (event: KeyboardEvent, index: number) => {
           @pointerdown="handlePointerDown"
           @pointerup="handlePointerUp"
         >
-          {{ item.name }}
+          <VRollTransition :value="item.name" class="menu-text" aria-hidden="true" v-slot="{ value }">
+            {{ value }}
+          </VRollTransition>
         </button>
       </div>
       <div
@@ -138,5 +143,14 @@ const handleTabKeydown = (event: KeyboardEvent, index: number) => {
   font-size: 1.25em;
   background-color: transparent;
   transform-origin: center;
+}
+
+.menu-text {
+  width: 100%;
+  height: 1.5em;
+}
+
+.menu-text :deep(.roll-item) {
+  justify-content: center;
 }
 </style>

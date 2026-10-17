@@ -2,7 +2,18 @@ pub mod llm;
 
 use super::CommandsResult;
 
+use crate::config::general::GeneralConfig;
 use crate::config::{CONFIG, options::OptionsConfig, path::PathsConfig, theme::ThemeName};
+
+#[uxs_commands::command]
+pub fn general() -> GeneralConfig {
+    *CONFIG.general.lock()
+}
+
+#[uxs_commands::command]
+pub fn set_general(general: GeneralConfig) {
+    *CONFIG.general.lock() = general;
+}
 
 /// Return the selected color theme for the main and mask WebViews.
 #[uxs_commands::command(webview = "mask")]

@@ -1,17 +1,23 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { onMounted, ref } from "vue";
 import VInput from "@/components/base/VInput.vue";
 import VToggle from "@/components/base/VToggle.vue";
 import { commands, type OptionsConfig } from "@/services/cmds";
 import { showError } from "@/services/errors";
+import { label } from "@/labels";
 
 const options = ref<OptionsConfig>();
-const speedValue = computed<number>({
-  get: () => options.value?.speedValue ?? 1,
-  set: (value) => {
-    options.value!.speedValue = value;
-  },
-});
+const lockSpeed = ref("");
+const switchingCd = ref("");
+const saveNumber = (key: "lockSpeed" | "switchingCd", input: string) => {
+  const value = input.trim() === "" ? null : Number(input);
+  if (value !== null && (!Number.isFinite(value) || value <= 0)) {
+    showError("保存课程配置失败:", new Error("请输入大于零的数字，或留空关闭。"));
+    return;
+  }
+  options.value![key] = value;
+  saveOptions();
+};
 const saveOptions = () =>
   commands
     .setOptions(options.value!)
@@ -19,6 +25,8 @@ const saveOptions = () =>
 
 onMounted(async () => {
   options.value = await commands.options();
+  lockSpeed.value = String(options.value.lockSpeed ?? "");
+  switchingCd.value = String(options.value.switchingCd ?? "");
 });
 </script>
 
@@ -30,33 +38,31 @@ onMounted(async () => {
     >
       <VToggle
         :model-value="options.muteWebview ?? false"
-        label="Mute Course"
-        annotation="开启后自动静音课程视频；关闭后按课程页面的音量播放。"
+        :label="label('muteCourse')"
+        annotation="开启后，课程视频会自动静音；关闭后，视频声音由课程页面控制。"
         class="option"
         @update:model-value="
           options.muteWebview = $event;
           saveOptions();
         "
       />
-      <VToggle
-        :model-value="options.speedLock ?? false"
-        label="Lock Playspeed"
-        annotation="开启后，视频开始播放时会强制使用下方设置的倍速，并阻止课程页面修改；关闭后由课程页面控制倍速。"
-        class="option"
-        @update:model-value="
-          options.speedLock = $event;
-          saveOptions();
-        "
-      />
       <VInput
         id="playing-speed-input"
-        v-model.number="speedValue"
-        placeholder="例如 1.5 或 2"
-        label="Playing Speed"
-        annotation="填写视频倍速，例如 1.5 或 2。只有开启“Lock Playspeed”后，这个数值才会强制应用。"
-        aria-label=""
+        v-model="lockSpeed"
+        placeholder="例如 2 表示两倍速，留空不调整"
+        :label="label('lockPlayspeed')"
+        annotation="填写想要的视频播放倍速，例如填 2 就按两倍速播放。播放时会保持这个倍速，不让课程页面改回去。留空则不调整视频倍速。"
         class="option speed-input"
-        @change="saveOptions"
+        @change="saveNumber('lockSpeed', lockSpeed)"
+      />
+      <VInput
+        id="switching-cd-input"
+        v-model="switchingCd"
+        placeholder="单位：秒，留空不额外等待"
+        :label="label('switchingCd')"
+        annotation="每次填题、开始任务或发送互动题的答案验证请求前，先等待这里设置的秒数。例如填 2，每次会随机等待 1.5～2.5 秒。留空则不额外等待。"
+        class="option speed-input"
+        @change="saveNumber('switchingCd', switchingCd)"
       />
     </div>
   </div>

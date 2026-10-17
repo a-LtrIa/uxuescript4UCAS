@@ -17,6 +17,7 @@ import VRollTransition from "./VRollTransition.vue";
 import VSelectorDropdown from "./VSelectorDropdown.vue";
 import VSelectorEditor from "./VSelectorEditor.vue";
 import type { SelectorData, SelectorMethods } from "./VSelector.types";
+import { label } from "@/labels";
 
 const { data, methods } = defineProps<{
   data: SelectorData;
@@ -36,7 +37,7 @@ let triggerResizeObserver: ResizeObserver | undefined;
 const showDirectNew = computed(() => data.mutable && data.items.length === 0);
 const hasDropdown = computed(() => data.items.length > 0 || data.mutable);
 const displayText = computed(() =>
-  showDirectNew.value ? "+ New" : (data.items[data.selectedIndex]?.label ?? ""),
+  showDirectNew.value ? `+ ${label("create")}` : (data.items[data.selectedIndex]?.label ?? ""),
 );
 
 watch(editTarget, async (target) => {
@@ -71,16 +72,16 @@ const startEdit = (index: number) => {
 const saveEditor = () => {
   if (!draft.value.trim()) return;
 
-  if (editTarget.value === "new") methods.create(draft.value);
+  if (editTarget.value === "new") methods.create?.(draft.value);
   else if (editTarget.value !== null)
-    methods.edit(editTarget.value, draft.value);
+    methods.edit?.(editTarget.value, draft.value);
 
   closeEditor();
 };
 
 const removeOption = (index: number) => {
   isOpen.value = false;
-  methods.remove(index);
+  methods.remove?.(index);
 };
 
 const toggleDropdown = () => {

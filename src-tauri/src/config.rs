@@ -1,8 +1,10 @@
+pub mod general;
 pub mod llm;
 pub mod options;
 pub mod path;
 pub mod theme;
 
+use general::GeneralConfig;
 use llm::LLMConfig;
 use options::OptionsConfig;
 use path::PathsConfig;
@@ -20,6 +22,7 @@ pub struct Config {
     pub log_level: log::LevelFilter,
     pub paths: PathsConfig,
     pub options: Mutex<OptionsConfig>,
+    pub general: Mutex<GeneralConfig>,
     pub theme: Mutex<ThemeConfig>,
     pub llm: LLMConfig,
 }
@@ -35,6 +38,7 @@ impl Default for Config {
             },
             paths: PathsConfig::default(),
             options: Mutex::new(OptionsConfig::default()),
+            general: Mutex::new(GeneralConfig::default()),
             theme: Mutex::new(ThemeConfig::default()),
             llm: LLMConfig::default(),
         }

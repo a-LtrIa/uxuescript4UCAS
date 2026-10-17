@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { showError } from "@/services/errors";
+import { label } from "@/labels";
+import VRollTransition from "@/components/base/VRollTransition.vue";
 
 const openIssues = async () => {
   try {
@@ -20,7 +22,9 @@ const openIssues = async () => {
       id="guide-title"
       class="title"
     >
-      User Guide
+      <VRollTransition :value="label('userGuide')" class="title-text" v-slot="{ value }">
+        {{ value }}
+      </VRollTransition>
     </h1>
     <div class="guide-content custom-scrollbar">
       <section aria-labelledby="guide-steps-title">
@@ -88,6 +92,15 @@ const openIssues = async () => {
   align-items: center;
   justify-content: center;
   color: var(--theme-brand);
+}
+
+.title-text {
+  width: 100%;
+  height: 1.5em;
+}
+
+.title-text :deep(.roll-item) {
+  justify-content: center;
 }
 
 .guide-content {

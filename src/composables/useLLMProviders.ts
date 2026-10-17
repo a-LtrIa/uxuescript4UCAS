@@ -2,6 +2,7 @@ import { computed, onMounted, reactive, ref } from "vue";
 import type { SelectorData } from "@/components/base/VSelector.types";
 import { commands, type LLMProvider } from "@/services/cmds";
 import { showError } from "@/services/errors";
+import { label } from "@/labels";
 
 export function useLLMProviders() {
   const providers = reactive<LLMProvider[]>([]);
@@ -10,7 +11,7 @@ export function useLLMProviders() {
     () => providers[selectedProviderIndex.value],
   );
   const providerData = computed<SelectorData>(() => ({
-    label: "Provider",
+    label: label("provider"),
     annotation: "从列表选择用于 AI 答题的服务商。点击“New”可添加自定义服务；自定义接口需兼容 OpenAI Chat Completions 格式，并在 Model 中添加该服务支持的模型。",
     selectedIndex: selectedProviderIndex.value,
     mutable: true,
@@ -23,7 +24,7 @@ export function useLLMProviders() {
     const provider = selectedProvider.value;
 
     return {
-      label: "Model",
+      label: label("model"),
       annotation: "选择服务商提供的模型。添加自定义模型时，点击“New”并填写服务商控制台中的模型 ID，名称需完全一致，例如 glm-4.7-flash。",
       selectedIndex: provider?.chosenModel ?? 0,
       mutable: provider?.isCustom ?? false,

@@ -61,9 +61,14 @@
     },
   };
 
-  /** @type {(ms: number) => Promise<void>} */
-  const sleep = (ms) =>
-    new Promise((resolve) => window.setTimeout(resolve, ms));
+  /** @type {(ms: number, fluctuationPercent?: number) => Promise<void>} */
+  const sleep = (ms, fluctuationPercent = 0) =>
+    new Promise((resolve) =>
+      window.setTimeout(
+        resolve,
+        ms * (1 + ((Math.random() * 2 - 1) * fluctuationPercent) / 100),
+      ),
+    );
 
   /** @type {(cond: any, msg: string) => asserts cond} */
   const assert = (cond, msg) => {
@@ -104,8 +109,10 @@
   class AppConfig {
     hasBackend = false;
     muteVideo = true;
-    lockingSpeed = false;
-    videoSpeedValue = 2.0;
+    /** @type {number | null} */
+    lockSpeed = null;
+    /** @type {number | null} */
+    switchingCd = null;
 
     /**
      * 调试任务类型列表：列出的类型不跳过已完成任务，并在处理后确认；非空时异常也弹出确认框。
@@ -124,8 +131,8 @@
         const res = await tauriInvoke("options");
         this.hasBackend = true;
         this.muteVideo = res.muteWebview ?? this.muteVideo;
-        this.lockingSpeed = res.speedLock ?? this.lockingSpeed;
-        this.videoSpeedValue = res.speedValue ?? this.videoSpeedValue;
+        this.lockSpeed = res.lockSpeed ?? null;
+        this.switchingCd = res.switchingCd ?? null;
         console.info("配置设置成功：", this);
       } catch (e) {
         console.error("从后端加载配置失败：", e);
@@ -135,6 +142,11 @@
 
   /** 全局配置 */
   const config = new AppConfig();
+
+  const switchingCooldown = async () => {
+    if (config.switchingCd == null) return;
+    await sleep(config.switchingCd * 1000, 25);
+  };
 
   /** DOM 异步等待工具库 */
   const wait = {
@@ -441,6 +453,7 @@
    * @returns {Promise<ExtValidationResult>}
    */
   const requestValidation = async (url) => {
+    await switchingCooldown();
     const response = await fetch(url, { credentials: "include" });
     if (!response.ok)
       throw new Error(`互动题验证请求失败：HTTP ${response.status}`);
@@ -459,50 +472,37 @@
     host,
   ) => {
     const candidates = getAnswerCandidates(quizData);
-    console.info("正在验证互动题候选答案", {
+    console.info("开始验证互动题候选答案", {
       resourceId: quizData.resourceId,
       description: quizData.description,
       candidateCount: candidates.length,
-      candidates,
     });
-    let results;
+    /** @type {{ answerContent: string, isRight: ExtValidationResult["isRight"] }[]} */
+    const results = [];
     try {
-      results = await Promise.all(
-        candidates.map(async (answerContent) => ({
+      for (const answerContent of candidates) {
+        const result = await requestValidation(
+          buildValidationUrl(validationUrl, quizData, answerContent, host),
+        );
+        results.push({ answerContent, isRight: result.isRight });
+        console.info("互动题候选答案验证结果", {
+          resourceId: quizData.resourceId,
           answerContent,
-          result: await requestValidation(
-            buildValidationUrl(validationUrl, quizData, answerContent, host),
-          ),
-        })),
-      );
+          isRight: result.isRight,
+        });
+        if (result.isRight) return answerContent;
+      }
     } catch (error) {
       console.error("互动题候选答案验证请求失败", {
         resourceId: quizData.resourceId,
         description: quizData.description,
-        candidates,
+        results,
       }, error);
       throw error;
     }
-    console.info("互动题候选答案验证结果", {
-      resourceId: quizData.resourceId,
-      description: quizData.description,
-      results: results.map(({ answerContent, result }) => ({
-        answerContent,
-        isRight: result.isRight,
-      })),
-    });
-    const correct = results.find(({ result }) => result.isRight);
-    if (!correct) {
-      throw new Error(
-        `互动题验证未返回正确答案（候选数：${candidates.length}）：${JSON.stringify(
-          results.map(({ answerContent, result }) => ({
-            answerContent,
-            isRight: result.isRight,
-          })),
-        )}`,
-      );
-    }
-    return correct.answerContent;
+    throw new Error(
+      `互动题验证未返回正确答案（候选数：${candidates.length}）：${JSON.stringify(results)}`,
+    );
   };
 
   /** @type {(timeline: HTMLElement) => Promise<ExtQuizData[]>} */
@@ -647,6 +647,7 @@
   /** @type {(items: InteractiveQuizItem[], quizDatas: ExtQuizData[]) => Promise<void>} */
   const fillInteractiveQuizItems = async (items, quizDatas) => {
     for (const { element, data } of items) {
+      await switchingCooldown();
       console.info(
         `开始处理第 ${quizDatas.indexOf(data) + 1}/${quizDatas.length} 道互动题`,
         { resourceId: data.resourceId, title: data.description },
@@ -739,7 +740,7 @@
     });
     if (!isStarted) throw new Error("视频多次尝试无法启动播放");
 
-    if (config.lockingSpeed) applySpeed(videoEl, config.videoSpeedValue);
+    if (config.lockSpeed != null) applySpeed(videoEl, config.lockSpeed);
     await handleInteractiveQuiz(taskDoc, videoEl);
     console.info("Video任务点处理完成");
 
@@ -920,6 +921,7 @@
       short: fillShort,
     };
     for (const [index, quizDiv] of quizList.entries()) {
+      await switchingCooldown();
       cleanup(quizDiv);
       const titleEl = quizDiv.querySelector(SELECTORS.quiz.titleClass);
       assert(
@@ -1033,6 +1035,7 @@
         continue;
       }
 
+      await switchingCooldown();
       await safeRun(
         () =>
           Promise.all([handler(taskDoc), wait.taskPointComplete(container)]),
@@ -1162,10 +1165,11 @@
   const main = async () => {
     await config.loadFromBackend();
 
-    const speedInfo = config.lockingSpeed
-      ? `${config.videoSpeedValue}x (已锁定)`
-      : `${config.videoSpeedValue}x`;
-    const configSummary = `当前配置：[视频倍速: ${speedInfo} | 自动静音: ${config.muteVideo ? "已开启" : "已关闭"}]`;
+    const speedInfo = config.lockSpeed != null
+      ? `${config.lockSpeed}x (已锁定)`
+      : "不锁定";
+    const cdInfo = config.switchingCd != null ? `${config.switchingCd}秒 (±25%)` : "已关闭";
+    const configSummary = `当前配置：[视频倍速: ${speedInfo} | 切换 CD: ${cdInfo} | 自动静音: ${config.muteVideo ? "已开启" : "已关闭"}]`;
 
     const isConfirmed = await confirm(
       `[使用须知与运行指南]

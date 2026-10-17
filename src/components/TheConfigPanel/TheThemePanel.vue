@@ -6,6 +6,8 @@ import { showError } from "@/services/errors";
 import { activeTheme, setTheme, themeNames, themes } from "@/theme";
 import type { CSSProperties } from "vue";
 import type { ThemeName } from "@/theme";
+import { label, themeLabel } from "@/labels";
+import VRollTransition from "@/components/base/VRollTransition.vue";
 
 const scaleFeedback = useScaleFeedback({
   hoverScale: 1.1,
@@ -54,7 +56,7 @@ const handleThemeKeydown = (event: KeyboardEvent, index: number) => {
     <div
       class="theme-list custom-scrollbar"
       role="radiogroup"
-      aria-label="Color theme"
+      :aria-label="label('colorTheme')"
       aria-orientation="vertical"
     >
       <button
@@ -63,6 +65,7 @@ const handleThemeKeydown = (event: KeyboardEvent, index: number) => {
         :key="name"
         type="button"
         role="radio"
+        :aria-label="themeLabel(name)"
         class="theme-option"
         :style="themeStyle(name)"
         :aria-checked="activeTheme === name"
@@ -74,7 +77,9 @@ const handleThemeKeydown = (event: KeyboardEvent, index: number) => {
         @pointerdown="scaleFeedback.handlePointerDown"
         @pointerup="scaleFeedback.handlePointerUp"
       >
-        <span class="theme-name">{{ name }}</span>
+        <VRollTransition :value="themeLabel(name)" class="theme-name" aria-hidden="true" v-slot="{ value }">
+          {{ value }}
+        </VRollTransition>
       </button>
     </div>
   </div>
@@ -143,7 +148,12 @@ const handleThemeKeydown = (event: KeyboardEvent, index: number) => {
 
 .theme-name {
   position: relative;
+  width: 100%;
+  height: 1.5em;
   font-size: 1.75rem;
-  text-transform: capitalize;
+}
+
+.theme-name :deep(.roll-item) {
+  justify-content: center;
 }
 </style>

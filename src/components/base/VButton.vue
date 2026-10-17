@@ -2,6 +2,7 @@
 import { computed, ref, type Component } from "vue";
 import { useMagnetic } from "@/composables/useMagnetic";
 import { createRipple } from "@/composables/ripple";
+import VRollTransition from "./VRollTransition.vue";
 
 const buttonRef = ref<HTMLElement | null>(null);
 const contentRef = ref<HTMLElement | null>(null);
@@ -59,12 +60,14 @@ const buttonStyle = computed(() => ({
     class="base-button"
     :class="[`variant-${variant}`, { 'shape-circle': shape === 'circle' }]"
     :disabled="disabled"
+    :aria-label="label"
     :style="buttonStyle"
     @pointerdown="onPointerDown"
   >
     <div
       ref="contentRef"
       class="content"
+      :class="{ 'has-label': label && !icon }"
     >
       <slot>
         <component
@@ -72,12 +75,15 @@ const buttonStyle = computed(() => ({
           v-if="icon"
           class="icon-svg"
         />
-        <span
+        <VRollTransition
           v-else-if="label"
+          :value="label"
           class="label-text"
+          aria-hidden="true"
+          v-slot="{ value }"
         >
-          {{ label }}
-        </span>
+          {{ value }}
+        </VRollTransition>
       </slot>
     </div>
   </button>
@@ -143,6 +149,20 @@ const buttonStyle = computed(() => ({
   width: 75%;
   height: 75%;
   fill: currentColor;
+}
+
+.content.has-label {
+  width: 100%;
+  min-width: 0;
+}
+
+.label-text {
+  width: 100%;
+  height: 1.5em;
+}
+
+.label-text :deep(.roll-item) {
+  justify-content: center;
 }
 
 .base-button:disabled {

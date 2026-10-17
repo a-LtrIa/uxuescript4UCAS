@@ -28,6 +28,8 @@ export const commands = {
 	switchModel: (index: number) => __TAURI_INVOKE<void>("switch_model", { index }),
 	/**  设置当前大语言模型提供商的 API 密钥。 */
 	setKey: (key: string) => __TAURI_INVOKE<null>("set_key", { key }),
+	general: () => __TAURI_INVOKE<GeneralConfig>("general"),
+	setGeneral: (general: GeneralConfig) => __TAURI_INVOKE<void>("set_general", { general }),
 	/**  Return the selected color theme for the main and mask WebViews. */
 	currentTheme: () => __TAURI_INVOKE<ThemeName>("current_theme"),
 	/**  Select a supported color theme in memory; save_config persists it with the other settings. */
@@ -121,6 +123,10 @@ export type CourseMetadata = {
 
 export type CourseStatus = { kind: "waiting"; payload: null } | { kind: "start"; payload: null } | { kind: "chapter"; payload: ChapterProgressPayload } | { kind: "tab"; payload: TabProgressPayload } | { kind: "task"; payload: TaskProgressPayload } | { kind: "cancel"; payload: null } | { kind: "finish"; payload: null };
 
+export type GeneralConfig = {
+	labelLanguage?: LabelLanguage,
+};
+
 /**  支持的大模型 API 发包协议族 */
 export type LLMProtocol = "OpenAIChatCompletions" | "OpenAIResponses" | "GoogleGemini";
 
@@ -135,10 +141,12 @@ export type LLMProvider = {
 	chosenModel: number | null,
 };
 
+export type LabelLanguage = "en" | "zh";
+
 export type OptionsConfig = {
 	muteWebview?: boolean,
-	speedLock?: boolean,
-	speedValue?: number | null,
+	lockSpeed?: number | null,
+	switchingCd?: number | null,
 };
 
 export type PathsConfig = {
