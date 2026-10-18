@@ -1,8 +1,7 @@
 use super::*;
 use crate::config::llm::{LLMProtocol, LLMProvider};
+use crate::test_support::http::{response, serve};
 use serde_json::{Value, json};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::TcpListener;
 
 static CONFIG_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
@@ -26,45 +25,6 @@ async fn probe(provider: &LLMProvider) -> CommandsResult<String> {
     result
 }
 
-async fn serve(status: u16, body: String) -> (String, tokio::task::JoinHandle<String>) {
-    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let url = format!("http://{}", listener.local_addr().unwrap());
-    let request = tokio::spawn(async move {
-        let (mut stream, _) = listener.accept().await.unwrap();
-        let mut bytes = Vec::new();
-        let mut buffer = [0; 4096];
-        let header_end = loop {
-            let count = stream.read(&mut buffer).await.unwrap();
-            assert_ne!(count, 0, "request ended before headers");
-            bytes.extend_from_slice(&buffer[..count]);
-            if let Some(end) = bytes.windows(4).position(|part| part == b"\r\n\r\n") {
-                break end + 4;
-            }
-        };
-        let headers = String::from_utf8_lossy(&bytes[..header_end]);
-        let length: usize = headers
-            .lines()
-            .find_map(|line| {
-                let (name, value) = line.split_once(':')?;
-                name.eq_ignore_ascii_case("content-length")
-                    .then(|| value.trim().parse().unwrap())
-            })
-            .unwrap();
-        while bytes.len() < header_end + length {
-            let count = stream.read(&mut buffer).await.unwrap();
-            assert_ne!(count, 0, "request ended before body");
-            bytes.extend_from_slice(&buffer[..count]);
-        }
-        let response = format!(
-            "HTTP/1.1 {status} Test\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
-            body.len(),
-        );
-        stream.write_all(response.as_bytes()).await.unwrap();
-        String::from_utf8(bytes).unwrap()
-    });
-    (url, request)
-}
-
 fn provider(protocol: LLMProtocol, base_url: String) -> LLMProvider {
     LLMProvider {
         name: "Health test".into(),
@@ -76,20 +36,6 @@ fn provider(protocol: LLMProtocol, base_url: String) -> LLMProvider {
         chosen_model: Some(0),
         extra_body: None,
     }
-}
-
-fn response(protocol: &LLMProtocol, answers: Value) -> String {
-    let text = answers.to_string();
-    match protocol {
-        LLMProtocol::OpenAIChatCompletions => json!({"choices": [{"message": {"content": text}}]}),
-        LLMProtocol::OpenAIResponses => {
-            json!({"output": [{"type": "message", "content": [{"text": text}]}]})
-        }
-        LLMProtocol::GoogleGemini => {
-            json!({"candidates": [{"content": {"parts": [{"text": text}]}}]})
-        }
-    }
-    .to_string()
 }
 
 #[tokio::test]
@@ -106,9 +52,8 @@ async fn probes_all_protocols_with_the_selected_model_and_fixed_question() {
         let (url, request) = serve(200, body).await;
         let provider = provider(protocol, url);
         assert_eq!(probe(&provider).await.unwrap(), "ok");
-        let raw = request.await.unwrap();
-        let (headers, body) = raw.split_once("\r\n\r\n").unwrap();
-        let body: Value = serde_json::from_str(body).unwrap();
+        let request = request.await.unwrap();
+        let body = request.body;
         let question = match provider.protocol {
             LLMProtocol::OpenAIChatCompletions => {
                 assert_eq!(body["model"], "probe-model");
@@ -119,7 +64,11 @@ async fn probes_all_protocols_with_the_selected_model_and_fixed_question() {
                 body["input"].as_str().unwrap()
             }
             LLMProtocol::GoogleGemini => {
-                assert!(headers.starts_with("POST /probe-model:generateContent "));
+                assert!(
+                    request
+                        .head
+                        .starts_with("POST /probe-model:generateContent ")
+                );
                 body["contents"][0]["parts"][0]["text"].as_str().unwrap()
             }
         };

@@ -49,7 +49,8 @@ pub async fn healthy() -> CommandsResult<String> {
 }
 
 #[cfg(test)]
-mod healthy_tests;
+#[path = "../../tests/unit/commands/chaoxing.rs"]
+mod tests;
 
 #[uxs_commands::command(webview = "chaoxing")]
 pub async fn solve_quiz(html: String) -> CommandsResult<Vec<AnswerItem>> {
