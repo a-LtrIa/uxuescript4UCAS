@@ -3,6 +3,7 @@ use crate::config::llm::{LLMProtocol, LLMProvider};
 use crate::core::quiz::html::Question;
 
 use anyhow::Result;
+use reqwest::header::{ACCEPT, HeaderMap, HeaderValue};
 use std::sync::Arc;
 use tokio::sync::Semaphore;
 
@@ -29,7 +30,13 @@ pub async fn solve(provider: &LLMProvider, questions: Vec<Question>) -> Result<V
         return Ok(Vec::new());
     }
 
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder()
+        .user_agent(concat!("uXueScript/", env!("CARGO_PKG_VERSION")))
+        .default_headers(HeaderMap::from_iter([(
+            ACCEPT,
+            HeaderValue::from_static("application/json"),
+        )]))
+        .build()?;
     let semaphore = Arc::new(Semaphore::new(MAX_CONCURRENCY));
     let mut handles = Vec::new();
 
@@ -291,6 +298,99 @@ mod tests {
 
     fn load_test_questions() -> Vec<Question> {
         load_questions_file("decrypted.json")
+    }
+
+    #[tokio::test]
+    async fn test_request_headers_for_all_protocols() {
+        use std::io::{BufRead, BufReader, Read, Write};
+        use std::net::TcpListener;
+
+        let answers = r#"[{"index":"1","explanation":"mock","content":"A"}]"#;
+        for protocol in [
+            LLMProtocol::OpenAIChatCompletions,
+            LLMProtocol::OpenAIResponses,
+            LLMProtocol::GoogleGemini,
+        ] {
+            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let address = listener.local_addr().unwrap();
+            let expected_protocol = protocol.clone();
+            let server = std::thread::spawn(move || {
+                let (mut stream, _) = listener.accept().unwrap();
+                stream
+                    .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+                    .unwrap();
+                let mut reader = BufReader::new(&stream);
+                let mut request_line = String::new();
+                reader.read_line(&mut request_line).unwrap();
+                let mut headers = std::collections::HashMap::new();
+                loop {
+                    let mut line = String::new();
+                    assert_ne!(reader.read_line(&mut line).unwrap(), 0);
+                    if line == "\r\n" {
+                        break;
+                    }
+                    let (name, value) = line.split_once(':').unwrap();
+                    headers.insert(name.to_ascii_lowercase(), value.trim().to_owned());
+                }
+                let mut body = vec![0; headers["content-length"].parse::<usize>().unwrap()];
+                reader.read_exact(&mut body).unwrap();
+                let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
+                assert_eq!(
+                    headers["user-agent"],
+                    concat!("uXueScript/", env!("CARGO_PKG_VERSION"))
+                );
+                assert_eq!(headers["accept"], "application/json");
+                assert_eq!(headers["content-type"], "application/json");
+                assert!(!headers.contains_key("accept-language"));
+
+                let response = match expected_protocol {
+                    LLMProtocol::OpenAIChatCompletions => {
+                        assert!(request_line.starts_with("POST /v1/chat/completions "));
+                        assert_eq!(headers["authorization"], "Bearer mock-api-key");
+                        assert_eq!(body["model"], "mock-model");
+                        assert!(body["messages"].is_array());
+                        serde_json::json!({"choices": [{"message": {"content": answers}}]})
+                    }
+                    LLMProtocol::OpenAIResponses => {
+                        assert!(request_line.starts_with("POST /v1/responses "));
+                        assert_eq!(headers["authorization"], "Bearer mock-api-key");
+                        assert_eq!(body["model"], "mock-model");
+                        assert!(body["input"].is_string());
+                        serde_json::json!({"output": [{"type": "message", "content": [{"text": answers}]}]})
+                    }
+                    LLMProtocol::GoogleGemini => {
+                        assert!(request_line.starts_with("POST /models/mock-model:generateContent "));
+                        assert_eq!(headers["x-goog-api-key"], "mock-api-key");
+                        assert!(body["contents"].is_array());
+                        serde_json::json!({"candidates": [{"content": {"parts": [{"text": answers}]}}]})
+                    }
+                }.to_string();
+                write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", response.len(), response).unwrap();
+            });
+
+            let path = match protocol {
+                LLMProtocol::OpenAIChatCompletions => "/v1/chat/completions",
+                LLMProtocol::OpenAIResponses => "/v1/responses",
+                LLMProtocol::GoogleGemini => "/models",
+            };
+            let provider = LLMProvider {
+                name: "Local mock".into(),
+                is_custom: true,
+                protocol,
+                base_url: format!("http://{address}{path}"),
+                api_key: Some(ApiKey::new("mock-api-key".into()).unwrap()),
+                models: vec!["mock-model".into()],
+                chosen_model: Some(0),
+                extra_body: None,
+            };
+            let result = solve(
+                &provider,
+                load_test_questions().into_iter().take(1).collect(),
+            )
+            .await;
+            server.join().unwrap();
+            assert_eq!(result.unwrap().len(), 1);
+        }
     }
 
     fn get_test_provider(provider_id: &str, api_key_env: Option<&str>) -> Option<LLMProvider> {
