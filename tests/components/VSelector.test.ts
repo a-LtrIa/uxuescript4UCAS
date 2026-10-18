@@ -1,9 +1,12 @@
-import { mount } from "@vue/test-utils";
-import { describe, expect, it, vi } from "vitest";
+import type { SelectorMethods } from "@/components/base/VSelector.types";
+import { enableAutoUnmount, mount } from "@vue/test-utils";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import VSelector from "@/components/base/VSelector.vue";
 
+enableAutoUnmount(afterEach);
+
 function createSelector() {
-  return mount(VSelector, {
+  const wrapper = mount(VSelector, {
     props: {
       data: {
         label: "Provider",
@@ -15,13 +18,14 @@ function createSelector() {
         ],
       },
       methods: {
-        select: vi.fn(),
-        create: vi.fn(),
-        edit: vi.fn(),
-        remove: vi.fn(),
+        select: vi.fn<NonNullable<SelectorMethods["select"]>>(),
+        create: vi.fn<NonNullable<SelectorMethods["create"]>>(),
+        edit: vi.fn<NonNullable<SelectorMethods["edit"]>>(),
+        remove: vi.fn<NonNullable<SelectorMethods["remove"]>>(),
       },
     },
   });
+  return wrapper;
 }
 
 describe("VSelector", () => {

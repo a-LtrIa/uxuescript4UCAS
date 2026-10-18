@@ -1,5 +1,4 @@
 ﻿import { flushPromises, mount } from "@vue/test-utils";
-import { gsap } from "gsap";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import TheMaskPage from "@/TheMaskPage.vue";
@@ -39,35 +38,35 @@ vi.mock("@/services/cmds", () => ({
   },
 }));
 
-vi.mock("gsap", () => ({
-  gsap: {
-    timeline: vi.fn((options?: { onComplete?: () => void }) => {
-      if (options?.onComplete) animationCompletions.push(options.onComplete);
-      const timeline = {
-        fromTo: vi.fn(),
-        to: vi.fn(),
-        then: vi.fn(
-          (callback?: () => unknown) =>
-            new Promise<unknown>((resolve, reject) => {
-              timelineCompletions.push(() => {
-                try {
-                  resolve(callback?.());
-                } catch (error) {
-                  reject(error);
-                }
-              });
-            }),
-        ),
-        kill: vi.fn(),
-      };
-      timeline.fromTo.mockImplementation(() => timeline);
-      timeline.to.mockImplementation(() => timeline);
-      return timeline;
-    }),
-    to: vi.fn(() => ({ kill: vi.fn() })),
-    killTweensOf: vi.fn(),
-  },
+const animations = vi.hoisted(() => ({
+  timeline: vi.fn((options?: { onComplete?: () => void }) => {
+    if (options?.onComplete) animationCompletions.push(options.onComplete);
+    const timeline = {
+      fromTo: vi.fn(),
+      to: vi.fn(),
+      then: vi.fn(
+        <T>(callback?: () => T | PromiseLike<T>) =>
+          new Promise<T | undefined>((resolve, reject) => {
+            timelineCompletions.push(() => {
+              try {
+                resolve(callback?.());
+              } catch (error) {
+                reject(error);
+              }
+            });
+          }),
+      ),
+      kill: vi.fn(),
+    };
+    timeline.fromTo.mockImplementation(() => timeline);
+    timeline.to.mockImplementation(() => timeline);
+    return timeline;
+  }),
+  to: vi.fn(() => ({ kill: vi.fn() })),
+  killTweensOf: vi.fn(),
 }));
+
+vi.mock("gsap", () => ({ gsap: animations }));
 
 afterEach(() => {
   events.clear();
@@ -78,17 +77,22 @@ afterEach(() => {
 });
 
 describe("TheMaskPage", () => {
-  it.each([TheMaskPage, TheChaoxingMaskPage])("uses the saved Chinese confirmation title", async (Page) => {
-    vi.mocked(commands.general).mockResolvedValueOnce({ labelLanguage: "zh" });
-    const wrapper = mount(Page);
-    await flushPromises();
-    events.get("confirmation-pop-up")?.({ payload: "测试消息" });
-    await flushPromises();
-    const dialog = wrapper.get('[role="dialog"]');
-    expect(dialog.get("h1").text()).toBe("确认");
-    expect(dialog.attributes("aria-label")).toBe("确认");
-    wrapper.unmount();
-  });
+  it.each([TheMaskPage, TheChaoxingMaskPage])(
+    "uses the saved Chinese confirmation title",
+    async (Page) => {
+      vi.mocked(commands.general).mockResolvedValueOnce({
+        labelLanguage: "zh",
+      });
+      const wrapper = mount(Page);
+      await flushPromises();
+      events.get("confirmation-pop-up")?.({ payload: "测试消息" });
+      await flushPromises();
+      const dialog = wrapper.get('[role="dialog"]');
+      expect(dialog.get("h1").text()).toBe("确认");
+      expect(dialog.attributes("aria-label")).toBe("确认");
+      wrapper.unmount();
+    },
+  );
 
   it("shows a cancel-only updater dialog with the course progress bar", async () => {
     const wrapper = mount(TheMaskPage);
@@ -199,19 +203,19 @@ describe("TheMaskPage", () => {
     await nextTick();
 
     expect(wrapper.find(".intro-mask").exists()).toBe(true);
-    expect(gsap.timeline).toHaveBeenCalledOnce();
+    expect(animations.timeline).toHaveBeenCalledOnce();
     expect(commands.hideMask).not.toHaveBeenCalled();
 
-    const timeline = vi.mocked(gsap.timeline).mock.results[0]?.value;
-    expect(vi.mocked(timeline.to)).not.toHaveBeenCalled();
+    const timeline = animations.timeline.mock.results[0]?.value;
+    expect(timeline.to).not.toHaveBeenCalled();
     timelineCompletions.shift()?.();
     await flushPromises();
     expect(commands.showContent).toHaveBeenCalledOnce();
-    expect(vi.mocked(timeline.to)).not.toHaveBeenCalled();
+    expect(timeline.to).not.toHaveBeenCalled();
 
     resolveShowContent(null);
     await flushPromises();
-    expect(vi.mocked(timeline.to)).toHaveBeenCalledTimes(4);
+    expect(timeline.to).toHaveBeenCalledTimes(4);
 
     timelineCompletions.shift()?.();
     await flushPromises();
@@ -235,7 +239,7 @@ describe("TheMaskPage", () => {
     expect(layers).toHaveLength(2);
     expect(layers[0].find(".intro-mask").exists()).toBe(true);
     expect(layers[1].find(".closing-mask").exists()).toBe(true);
-    expect(gsap.to).toHaveBeenCalledOnce();
+    expect(animations.to).toHaveBeenCalledOnce();
 
     timelineCompletions.shift()?.();
     await flushPromises();
@@ -324,7 +328,7 @@ describe("TheMaskPage", () => {
     events.get("confirmation-pop-up")?.({ payload: "Old page" });
     await nextTick();
     await wrapper.findAll("button")[0].trigger("click");
-    const results = vi.mocked(gsap.timeline).mock.results;
+    const results = animations.timeline.mock.results;
     const closing = results[results.length - 1]?.value;
     expect(emitTo).not.toHaveBeenCalled();
 

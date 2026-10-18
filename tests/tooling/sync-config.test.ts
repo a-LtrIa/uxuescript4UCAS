@@ -11,7 +11,7 @@ import {
 import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
-import build from "../config/build.json";
+import build from "../../config/build.json";
 
 let output: string;
 const read = (path: string) => readFileSync(join(output, path), "utf8");

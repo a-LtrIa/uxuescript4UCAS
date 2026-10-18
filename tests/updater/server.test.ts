@@ -4,9 +4,9 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
-import { createUpdaterServer } from "./updater/server.ts";
-import { parseOptions } from "./updater/cli.ts";
-import fixture from "./updater/fixture.json";
+import { createUpdaterServer } from "./server.ts";
+import { parseOptions } from "./cli.ts";
+import fixture from "./fixture.json";
 
 describe("Updater Mock Server", () => {
   let testDir: string;

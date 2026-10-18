@@ -1,13 +1,24 @@
+import type { showError } from "@/services/errors";
+import type { commands } from "@/services/cmds";
 import { flushPromises, mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import TheCourseConfigPanel from "@/components/TheConfigPanel/TheCourseConfigPanel.vue";
 
-const mocks = vi.hoisted(() => ({ options: vi.fn(), setOptions: vi.fn(), error: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  options: vi.fn<typeof commands.options>(),
+  setOptions: vi.fn<typeof commands.setOptions>(),
+  error: vi.fn<typeof showError>(),
+}));
 vi.mock("@/services/cmds", () => ({ commands: mocks }));
 vi.mock("@/services/errors", () => ({ showError: mocks.error }));
 
 beforeEach(() => {
-  mocks.options.mockResolvedValue({ muteWebview: true, lockSpeed: 2, switchingCd: 3 });
+  mocks.options.mockResolvedValue({
+    muteWebview: true,
+    quizReview: false,
+    lockSpeed: 2,
+    switchingCd: 3,
+  });
   mocks.setOptions.mockResolvedValue(undefined);
 });
 
@@ -18,9 +29,13 @@ describe("optional course settings", () => {
     const toggle = wrapper.get("#quiz-review-toggle");
     expect(toggle.attributes("aria-checked")).toBe("false");
     await toggle.trigger("click");
-    expect(mocks.setOptions).toHaveBeenLastCalledWith(expect.objectContaining({ quizReview: true }));
+    expect(mocks.setOptions).toHaveBeenLastCalledWith(
+      expect.objectContaining({ quizReview: true }),
+    );
     await toggle.trigger("click");
-    expect(mocks.setOptions).toHaveBeenLastCalledWith(expect.objectContaining({ quizReview: false }));
+    expect(mocks.setOptions).toHaveBeenLastCalledWith(
+      expect.objectContaining({ quizReview: false }),
+    );
     wrapper.unmount();
   });
   it("loads, updates and clears both numeric settings", async () => {
@@ -33,9 +48,13 @@ describe("optional course settings", () => {
       const input = wrapper.get<HTMLInputElement>(`#${id}`);
       expect(input.element.value).toBe(initial);
       await input.setValue("1.5");
-      expect(mocks.setOptions).toHaveBeenLastCalledWith(expect.objectContaining({ [key]: 1.5 }));
+      expect(mocks.setOptions).toHaveBeenLastCalledWith(
+        expect.objectContaining({ [key]: 1.5 }),
+      );
       await input.setValue("");
-      expect(mocks.setOptions).toHaveBeenLastCalledWith(expect.objectContaining({ [key]: null }));
+      expect(mocks.setOptions).toHaveBeenLastCalledWith(
+        expect.objectContaining({ [key]: null }),
+      );
     }
     wrapper.unmount();
   });

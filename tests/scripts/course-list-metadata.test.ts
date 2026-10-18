@@ -1,7 +1,8 @@
+import type { CourseMetadata } from "@/services/cmds";
 import { runInNewContext } from "node:vm";
 import { flushPromises } from "@vue/test-utils";
-import { describe, expect, it, vi } from "vitest";
-import script from "../src-tauri/src/scripts/course-list-metadata.js?raw";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import script from "../../src-tauri/src/scripts/course-list-metadata.js?raw";
 
 const channel = "uxue-course-list-metadata";
 const mainOrigin = "https://i.chaoxing.com";
@@ -11,33 +12,75 @@ const card = `<div class="course"><input class="courseId" value="265998423">
   <img src="https://p.cldisk.com/star3/d858860c4cef76155b5e62596693ead0/cover.jpg">
   </div></div>`;
 
+type MetadataMessage =
+  | { channel: string; kind: "ready" | "collect" }
+  | {
+      channel: string;
+      kind: "courses";
+      courses: { courseId: string; metadata: CourseMetadata }[];
+    };
+interface FrameEvent {
+  source: object;
+  origin: string;
+  data: MetadataMessage;
+}
+
+const observers: MutationObserver[] = [];
+
+afterEach(() => {
+  for (const observer of observers) observer.disconnect();
+  observers.length = 0;
+});
+
 function page(origin: string, top?: object) {
-  const listeners = new Set<(event: unknown) => void>();
-  const invoke = vi.fn().mockResolvedValue(null);
+  const listeners = new Set<(event: FrameEvent) => void>();
+  const invoke = vi
+    .fn<
+      (
+        command: "insert_course_meta_map",
+        args: { courseId: string; metadata: CourseMetadata },
+      ) => Promise<null>
+    >()
+    .mockResolvedValue(null);
   const pageWindow = {
     location: { origin },
-    top: undefined as unknown,
-    postMessage: vi.fn(),
-    addEventListener: (_: string, callback: (event: unknown) => void) => listeners.add(callback),
-    removeEventListener: (_: string, callback: (event: unknown) => void) => listeners.delete(callback),
+    get top(): object {
+      return top ?? pageWindow;
+    },
+    postMessage: vi.fn<(message: MetadataMessage, origin: string) => void>(),
+    addEventListener: (_: string, callback: (event: FrameEvent) => void) =>
+      listeners.add(callback),
+    removeEventListener: (_: string, callback: (event: FrameEvent) => void) =>
+      listeners.delete(callback),
     __TAURI_INTERNALS__: { invoke },
   };
-  pageWindow.top = top ?? pageWindow;
   const doc = document.implementation.createHTMLDocument();
-  Object.defineProperty(doc, "readyState", { value: "complete", configurable: true });
-  const observers: MutationObserver[] = [];
+  Object.defineProperty(doc, "readyState", {
+    value: "complete",
+    configurable: true,
+  });
   class Observer extends MutationObserver {
-    constructor(callback: MutationCallback) { super(callback); observers.push(this); }
+    constructor(callback: MutationCallback) {
+      super(callback);
+      observers.push(this);
+    }
   }
   return {
-    pageWindow, doc, invoke,
-    run: () => runInNewContext(script, {
-      window: pageWindow, document: doc, URL, MutationObserver: Observer, console,
-    }),
-    receive: (source: object, sourceOrigin: string, data: object) => {
-      for (const listener of listeners) listener({ source, origin: sourceOrigin, data });
+    pageWindow,
+    doc,
+    invoke,
+    run: () =>
+      runInNewContext(script, {
+        window: pageWindow,
+        document: doc,
+        URL,
+        MutationObserver: Observer,
+        console,
+      }),
+    receive: (source: object, sourceOrigin: string, data: MetadataMessage) => {
+      for (const listener of listeners)
+        listener({ source, origin: sourceOrigin, data });
     },
-    dispose: () => observers.forEach((observer) => observer.disconnect()),
   };
 }
 
@@ -47,9 +90,15 @@ describe("MainSpace iframe course metadata", () => {
     const child = page(frameOrigin, root.pageWindow);
     root.run();
     child.run();
-    expect(root.pageWindow.postMessage).toHaveBeenCalledWith({ channel, kind: "ready" }, "*");
+    expect(root.pageWindow.postMessage).toHaveBeenCalledWith(
+      { channel, kind: "ready" },
+      "*",
+    );
     root.receive(child.pageWindow, frameOrigin, { channel, kind: "ready" });
-    expect(child.pageWindow.postMessage).toHaveBeenCalledWith({ channel, kind: "collect" }, frameOrigin);
+    expect(child.pageWindow.postMessage).toHaveBeenCalledWith(
+      { channel, kind: "collect" },
+      frameOrigin,
+    );
     child.receive(root.pageWindow, mainOrigin, { channel, kind: "collect" });
 
     child.doc.body.innerHTML = `<div id="courseList">${card}</div>`;
@@ -73,8 +122,10 @@ describe("MainSpace iframe course metadata", () => {
     expect(root.pageWindow.postMessage).not.toHaveBeenCalled();
     child.doc.querySelector(".course-name")!.textContent = "更新课程名称";
     await flushPromises();
-    expect(root.pageWindow.postMessage.mock.calls[0][0].courses[0].metadata.title).toBe("更新课程名称");
-    child.dispose();
+    const update = root.pageWindow.postMessage.mock.calls[0][0];
+    if (update.kind !== "courses")
+      throw new Error("Expected a course metadata update");
+    expect(update.courses[0].metadata.title).toBe("更新课程名称");
   });
 
   it("does not authorize collection outside MainSpace or from foreign origins", () => {
@@ -86,9 +137,16 @@ describe("MainSpace iframe course metadata", () => {
 
     const main = page(mainOrigin);
     main.run();
-    main.receive(source, "https://chaoxing.com.example.com", { channel, kind: "ready" });
+    main.receive(source, "https://chaoxing.com.example.com", {
+      channel,
+      kind: "ready",
+    });
     expect(source.postMessage).not.toHaveBeenCalled();
-    main.receive(source, "https://example.com", { channel, kind: "courses", courses: [] });
+    main.receive(source, "https://example.com", {
+      channel,
+      kind: "courses",
+      courses: [],
+    });
     expect(main.invoke).not.toHaveBeenCalled();
   });
 
@@ -107,6 +165,5 @@ describe("MainSpace iframe course metadata", () => {
     expect(root.pageWindow.postMessage).not.toHaveBeenCalled();
     child.doc.dispatchEvent(new Event("DOMContentLoaded"));
     expect(root.pageWindow.postMessage).toHaveBeenCalledOnce();
-    child.dispose();
   });
 });

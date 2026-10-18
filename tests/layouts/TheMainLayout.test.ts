@@ -1,7 +1,7 @@
 ﻿import { flushPromises, shallowMount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import TheMainLayout from "@/layouts/TheMainLayout.vue";
-import appConfig from "../src-tauri/tauri.conf.json";
+import appConfig from "../../src-tauri/tauri.conf.json";
 
 const mocks = vi.hoisted(() => ({
   once: vi.fn(),

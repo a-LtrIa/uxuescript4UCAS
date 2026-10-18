@@ -1,16 +1,17 @@
+import type { commands } from "@/services/cmds";
 import { defineComponent } from "vue";
-import { flushPromises, mount } from "@vue/test-utils";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { enableAutoUnmount, flushPromises, mount } from "@vue/test-utils";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useLLMProviders } from "@/composables/useLLMProviders";
 import type { LLMProvider } from "@/services/cmds";
 
 const commandMocks = vi.hoisted(() => ({
-  providers: vi.fn(),
-  currentProvider: vi.fn(),
-  upsertProvider: vi.fn(),
-  switchProvider: vi.fn(),
-  removeProvider: vi.fn(),
-  switchModel: vi.fn(),
+  providers: vi.fn<typeof commands.providers>(),
+  currentProvider: vi.fn<typeof commands.currentProvider>(),
+  upsertProvider: vi.fn<typeof commands.upsertProvider>(),
+  switchProvider: vi.fn<typeof commands.switchProvider>(),
+  removeProvider: vi.fn<typeof commands.removeProvider>(),
+  switchModel: vi.fn<typeof commands.switchModel>(),
 }));
 
 vi.mock("@/services/cmds", () => ({ commands: commandMocks }));
@@ -28,9 +29,11 @@ function makeProvider(overrides: Partial<LLMProvider> = {}): LLMProvider {
   };
 }
 
+enableAutoUnmount(afterEach);
+
 async function mountComposable() {
   let state!: ReturnType<typeof useLLMProviders>;
-  const wrapper = mount(
+  mount(
     defineComponent({
       setup() {
         state = useLLMProviders();
@@ -41,17 +44,16 @@ async function mountComposable() {
   );
 
   await flushPromises();
-  return { state, wrapper };
+  return state;
 }
 
 beforeEach(() => {
-  vi.clearAllMocks();
   commandMocks.providers.mockResolvedValue([]);
   commandMocks.currentProvider.mockResolvedValue("");
   commandMocks.upsertProvider.mockResolvedValue(null);
   commandMocks.switchProvider.mockResolvedValue(null);
   commandMocks.removeProvider.mockResolvedValue(null);
-  commandMocks.switchModel.mockResolvedValue(null);
+  commandMocks.switchModel.mockResolvedValue(undefined);
 });
 
 describe("useLLMProviders", () => {
@@ -65,7 +67,7 @@ describe("useLLMProviders", () => {
     commandMocks.providers.mockResolvedValue([defaultProvider, customProvider]);
     commandMocks.currentProvider.mockResolvedValue("Custom");
 
-    const { state } = await mountComposable();
+    const state = await mountComposable();
 
     expect(state.selectedProvider.value).toEqual(customProvider);
     expect(state.providerData.value.items).toEqual([
@@ -88,7 +90,7 @@ describe("useLLMProviders", () => {
     ]);
     commandMocks.currentProvider.mockResolvedValue("deepseek");
 
-    const { state } = await mountComposable();
+    const state = await mountComposable();
 
     expect(state.selectedProvider.value).toEqual(deepSeekProvider);
   });
@@ -98,7 +100,7 @@ describe("useLLMProviders", () => {
     commandMocks.providers.mockResolvedValue([defaultProvider]);
     commandMocks.currentProvider.mockResolvedValue("Default");
 
-    const { state } = await mountComposable();
+    const state = await mountComposable();
 
     await state.addProvider("  Custom  ");
 
@@ -125,12 +127,18 @@ describe("useLLMProviders", () => {
     commandMocks.providers.mockResolvedValue([provider]);
     commandMocks.currentProvider.mockResolvedValue("Custom");
 
-    const { state } = await mountComposable();
+    const state = await mountComposable();
 
     await state.deleteModel(1);
 
     expect(state.selectedProvider.value?.models).toEqual(["first", "third"]);
     expect(state.selectedProvider.value?.chosenModel).toBe(1);
-    expect(commandMocks.upsertProvider).toHaveBeenCalledWith(provider);
+    expect(commandMocks.upsertProvider).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "Custom",
+        models: ["first", "third"],
+        chosenModel: 1,
+      }),
+    );
   });
 });

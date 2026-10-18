@@ -19,11 +19,11 @@ vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: vi.fn() }));
 vi.mock("@/services/errors", () => ({ showError: vi.fn() }));
 vi.mock("@/services/cmds", () => ({
   commands: {
-    checkUpdate: vi.fn(),
-    platform: vi.fn(),
-    isMsiInstall: vi.fn(),
-    confirm: vi.fn(),
-    downloadUpdate: vi.fn(),
+    checkUpdate: vi.fn<typeof commands.checkUpdate>(),
+    platform: vi.fn<typeof commands.platform>(),
+    isMsiInstall: vi.fn<typeof commands.isMsiInstall>(),
+    confirm: vi.fn<typeof commands.confirm>(),
+    downloadUpdate: vi.fn<typeof commands.downloadUpdate>(),
   },
 }));
 

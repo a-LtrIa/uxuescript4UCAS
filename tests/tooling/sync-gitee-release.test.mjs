@@ -5,7 +5,7 @@ import { spawnSync } from "node:child_process";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { syncRelease, syncTag } from "../scripts/sync-gitee-release.mjs";
+import { syncRelease, syncTag } from "../../scripts/sync-gitee-release.mjs";
 
 let server, base, options, state, directory;
 const canonical = {

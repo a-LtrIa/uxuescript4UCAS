@@ -1,7 +1,10 @@
+import type { commands } from "@/services/cmds";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { showError } from "@/services/errors";
 
-const commandMocks = vi.hoisted(() => ({ confirm: vi.fn() }));
+const commandMocks = vi.hoisted(() => ({
+  confirm: vi.fn<typeof commands.confirm>(),
+}));
 vi.mock("@/services/cmds", () => ({ commands: commandMocks }));
 
 beforeEach(() => {
@@ -17,13 +20,18 @@ describe("showError", () => {
     await showError("保存失败:", cause);
 
     expect(console.error).toHaveBeenCalledWith("保存失败:", cause);
-    expect(commandMocks.confirm).toHaveBeenCalledWith("保存失败:\npermission denied");
+    expect(commandMocks.confirm).toHaveBeenCalledWith(
+      "保存失败:\npermission denied",
+    );
   });
 
   it("waits for the current confirmation before showing the next error", async () => {
     let closeFirst!: (choice: boolean) => void;
-    commandMocks.confirm.mockImplementationOnce(() =>
-      new Promise<boolean>((resolve) => { closeFirst = resolve; }),
+    commandMocks.confirm.mockImplementationOnce(
+      () =>
+        new Promise<boolean>((resolve) => {
+          closeFirst = resolve;
+        }),
     );
 
     const first = showError("第一个错误", "first");
@@ -33,7 +41,10 @@ describe("showError", () => {
 
     closeFirst(false);
     await Promise.all([first, second]);
-    expect(commandMocks.confirm).toHaveBeenNthCalledWith(2, "第二个错误\nsecond");
+    expect(commandMocks.confirm).toHaveBeenNthCalledWith(
+      2,
+      "第二个错误\nsecond",
+    );
   });
 
   it("logs a failed confirmation and continues showing subsequent errors", async () => {
@@ -45,6 +56,8 @@ describe("showError", () => {
 
     expect(console.error).toHaveBeenCalledWith("显示错误弹窗失败:", cause);
     expect(commandMocks.confirm).toHaveBeenCalledTimes(2);
-    expect(commandMocks.confirm).toHaveBeenLastCalledWith("导航失败\nnavigation failed");
+    expect(commandMocks.confirm).toHaveBeenLastCalledWith(
+      "导航失败\nnavigation failed",
+    );
   });
 });
