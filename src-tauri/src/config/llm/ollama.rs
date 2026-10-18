@@ -43,3 +43,7 @@ pub async fn fetch_models(base_url: &str) -> Vec<String> {
 #[cfg(test)]
 #[path = "../../../tests/unit/config/llm/ollama.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../../tests/live/config/llm/ollama.rs"]
+mod live_tests;

@@ -29,3 +29,7 @@ pub async fn solve(html: &str) -> Result<Vec<AnswerItem>> {
         .ok_or_else(|| anyhow::anyhow!("大模型提供商 [{}] 不存在", active_id))?;
     llm::solve(&provider, decrypted).await
 }
+
+#[cfg(test)]
+#[path = "../../tests/live/core/quiz.rs"]
+mod live_tests;

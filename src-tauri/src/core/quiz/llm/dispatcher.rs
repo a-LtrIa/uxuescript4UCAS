@@ -282,3 +282,7 @@ async fn gemini(
 #[cfg(test)]
 #[path = "../../../../tests/unit/core/quiz/llm/dispatcher.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../../../tests/live/core/quiz/llm/dispatcher.rs"]
+mod live_tests;
