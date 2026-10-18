@@ -151,7 +151,16 @@
     await sleep(config.switchingCd * 1000, 25);
   };
 
-  /** DOM 异步等待工具库 */
+  /**
+   * DOM 异步等待工具库。显式声明对象类型，避免内部互调造成 TS 7 循环推断。
+   * @type {{
+   *   until: <T>(getter: () => T, timeout?: number, interval?: number) => Promise<T | null>,
+   *   elements: <T extends HTMLElement = HTMLElement>(preAction: (() => void | Promise<void>) | null, selector: string, root: ParentNode, errorMsg?: string | false) => Promise<T[]>,
+   *   element: (preAction: (() => void | Promise<void>) | null, selector: string, root: ParentNode, errorMsg?: string | false) => Promise<HTMLElement>,
+   *   iframeDoc: (preAction: (() => void | Promise<void>) | null, selector: string, root: ParentNode, errorMsg?: string | false) => Promise<Document>,
+   *   taskPointComplete: (container: HTMLElement) => Promise<boolean>
+   * }}
+   */
   const wait = {
     /** @type {<T>(getter: () => T, timeout?: number, interval?: number) => Promise<T | null>} */
     until: async (getter, timeout = 5000, interval = 250) => {
@@ -220,6 +229,7 @@
             ?.contentDocument ?? null;
         await preAction();
       }
+      /** @type {Document | null} */
       const doc = await wait.until(() =>
         getReadyIframeDoc(
           /** @type {HTMLIFrameElement | null} */ (
