@@ -39,7 +39,7 @@ function setup(debugTypes: string[], hasBackend = true) {
     container.appendChild(iframe);
     chapter.appendChild(container);
   };
-  return { handlers, wait, chapter, add, run: () => handleTab(chapter) };
+  return { handlers, wait, chapter, add, error: context.console.error, run: () => handleTab(chapter) };
 }
 
 describe("debug task selection", () => {
@@ -128,6 +128,25 @@ describe("debug task selection", () => {
     finish();
     await run;
     expect(done).toBe(true);
+  });
+
+  it.each([
+    ["audio", "未识别的任务点类型:"],
+    ["work", "未开启后端服务，无法处理Quiz任务点"],
+  ])("continues after a %s assertion without starting its completion watcher", async (kind, message) => {
+    const page = setup([], false);
+    page.add(kind, true);
+    page.add("pdf", true);
+    await page.run();
+    expect(page.error).toHaveBeenCalledOnce();
+    expect(page.error).toHaveBeenCalledWith(
+      expect.stringContaining("第 1/2 个任务点 处理异常，自动跳过"),
+      expect.objectContaining({ message: expect.stringContaining(message) }),
+    );
+    expect(page.handlers.Quiz).not.toHaveBeenCalled();
+    expect(page.handlers.PDF).toHaveBeenCalledOnce();
+    expect(page.wait.taskPointComplete).toHaveBeenCalledOnce();
+    expect(page.wait.taskPointComplete).toHaveBeenCalledWith(page.chapter.children[1]);
   });
 
   it("does not fail on a debug page without frame attachments", async () => {

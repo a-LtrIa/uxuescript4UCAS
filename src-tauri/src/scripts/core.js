@@ -474,7 +474,10 @@
     const candidates = getAnswerCandidates(quizData);
     for (let index = candidates.length - 1; index > 0; index--) {
       const target = Math.floor(Math.random() * (index + 1));
-      [candidates[index], candidates[target]] = [candidates[target], candidates[index]];
+      [candidates[index], candidates[target]] = [
+        candidates[target],
+        candidates[index],
+      ];
     }
     console.info("开始验证互动题候选答案", {
       resourceId: quizData.resourceId,
@@ -1050,9 +1053,6 @@
       if (debugging && !config.debugTaskTypes.includes(type)) continue;
       await emit.taskProgress(index, type);
       const handler = taskHandler[type];
-      assert(handler, `未识别的任务点类型: ${taskDoc.location.href}`);
-      if (type === "Quiz")
-        assert(config.hasBackend, "未开启后端服务，无法处理Quiz任务点");
       if (
         !debugging &&
         container.classList.contains(SELECTORS.taskPoint.finishedClass)
@@ -1062,16 +1062,14 @@
       }
 
       await switchingCooldown();
-      await safeRun(
-        () =>
-          debugging
-            ? handler(taskDoc)
-            : Promise.all([
-                handler(taskDoc),
-                wait.taskPointComplete(container),
-              ]),
-        `${taskInfo} 处理异常，自动跳过，任务点类别：${type}`,
-      );
+      await safeRun(async () => {
+        assert(handler, `未识别的任务点类型: ${taskDoc.location.href}`);
+        if (type === "Quiz")
+          assert(config.hasBackend, "未开启后端服务，无法处理Quiz任务点");
+
+        await handler(taskDoc);
+        if (!debugging) await wait.taskPointComplete(container);
+      }, `${taskInfo} 处理异常，自动跳过，任务点类别：${type}`);
     }
   };
 
