@@ -99,6 +99,43 @@ fn provider_key(config: &Config, id: &str) -> Option<super::llm::ApiKey> {
 }
 
 #[test]
+fn saved_configs_gain_new_presets_without_resetting_existing_providers() {
+    for version in [env!("CARGO_PKG_VERSION"), "2.1.4"] {
+        let mut previous = Config {
+            version: version.into(),
+            ..Config::default()
+        };
+        previous.llm.providers.get_mut().remove("bailian");
+        previous.llm.providers.get_mut().remove("siliconflow");
+        *previous.llm.active_provider.get_mut() = "deepseek".into();
+        let provider = previous
+            .llm
+            .providers
+            .get_mut()
+            .get_mut("deepseek")
+            .unwrap();
+        provider.api_key = Some(super::llm::ApiKey::new("existing-api-key".into()).unwrap());
+        provider.base_url = "https://example.com/chat/completions".into();
+
+        let loaded = Config::parse(&toml::to_string(&previous).unwrap()).unwrap();
+        assert_eq!(*loaded.llm.active_provider.lock(), "deepseek");
+        assert_eq!(
+            provider_key(&loaded, "deepseek"),
+            provider_key(&previous, "deepseek")
+        );
+        let providers = loaded.llm.providers.lock();
+        assert_eq!(providers["bailian"].name, "Bailian");
+        assert!(!providers["bailian"].is_custom);
+        assert_eq!(providers["siliconflow"].name, "SiliconFlow");
+        assert!(!providers["siliconflow"].is_custom);
+        assert_eq!(
+            providers["deepseek"].base_url,
+            "https://example.com/chat/completions"
+        );
+    }
+}
+
+#[test]
 fn version_change_preserves_selected_model_by_name_after_reordering() {
     let mut previous = Config {
         version: "2.1.4".into(),

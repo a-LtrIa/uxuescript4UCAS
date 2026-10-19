@@ -1,4 +1,22 @@
 {
+  "bailian": {
+    "name": "Bailian",
+    "isCustom": false,
+    "protocol": "OpenAIChatCompletions",
+    "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+    "apiKey": null,
+    "models": [
+      "qwen3.8-flash",
+      "qwen3.7-flash",
+      "qwen3.7-plus",
+      "qwen3.8-max"
+    ],
+    "chosenModel": 0,
+    "extraBody": {
+      "enable_thinking": false,
+      "stream": false
+    }
+  },
   "bigmodel": {
     "name": "BigModel",
     "isCustom": false,
@@ -92,6 +110,22 @@
     ],
     "chosenModel": 0,
     "extraBody": null
+  },
+  "siliconflow": {
+    "name": "SiliconFlow",
+    "isCustom": false,
+    "protocol": "OpenAIChatCompletions",
+    "baseUrl": "https://api.siliconflow.cn/v1/chat/completions",
+    "apiKey": null,
+    "models": [
+      "deepseek-ai/DeepSeek-V4.1-Flash",
+      "Qwen/Qwen3.8-27B",
+      "zai-org/GLM-5.3-Flash"
+    ],
+    "chosenModel": 0,
+    "extraBody": {
+      "stream": false
+    }
   },
   "ollama": {
     "name": "Ollama",

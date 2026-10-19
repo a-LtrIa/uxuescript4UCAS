@@ -35,6 +35,7 @@ fn test_llm_default_config_preset_providers() {
 
     let providers = config.providers.lock();
     let expected_online_providers = [
+        ("bailian", "Bailian", LLMProtocol::OpenAIChatCompletions),
         ("bigmodel", "BigModel", LLMProtocol::OpenAIChatCompletions),
         ("deepseek", "DeepSeek", LLMProtocol::OpenAIChatCompletions),
         ("google", "Google", LLMProtocol::GoogleGemini),
@@ -43,6 +44,11 @@ fn test_llm_default_config_preset_providers() {
         (
             "openrouter",
             "OpenRouter",
+            LLMProtocol::OpenAIChatCompletions,
+        ),
+        (
+            "siliconflow",
+            "SiliconFlow",
             LLMProtocol::OpenAIChatCompletions,
         ),
     ];

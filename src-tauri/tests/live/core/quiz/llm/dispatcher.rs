@@ -107,6 +107,24 @@ async fn run_benchmark(provider_id: &str, api_key_env: Option<&str>, label: &str
 }
 
 #[tokio::test]
+#[ignore = "requires network and DASHSCOPE_API_KEY"]
+async fn test_solve_bailian() {
+    run_provider_test("bailian", Some("DASHSCOPE_API_KEY"), "Bailian", |_| false).await;
+}
+
+#[tokio::test]
+#[ignore = "requires network and SILICONFLOW_API_KEY"]
+async fn test_solve_siliconflow() {
+    run_provider_test(
+        "siliconflow",
+        Some("SILICONFLOW_API_KEY"),
+        "SiliconFlow",
+        |_| false,
+    )
+    .await;
+}
+
+#[tokio::test]
 #[ignore = "requires network and BIGMODEL_API_KEY"]
 async fn test_solve_bigmodel() {
     run_provider_test("bigmodel", Some("BIGMODEL_API_KEY"), "BigModel", |_| false).await;

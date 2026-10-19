@@ -4,6 +4,68 @@ use crate::test_support::http::{response, serve};
 use serde_json::json;
 
 #[tokio::test]
+async fn preset_chat_requests_preserve_options_and_read_answer_arrays() {
+    for (id, path, model, thinking) in [
+        (
+            "bailian",
+            "/compatible-mode/v1/chat/completions",
+            "qwen3.8-flash",
+            Some(false),
+        ),
+        (
+            "siliconflow",
+            "/v1/chat/completions",
+            "deepseek-ai/DeepSeek-V4.1-Flash",
+            None,
+        ),
+    ] {
+        let mut provider = crate::config::llm::LLMConfig::default()
+            .providers
+            .into_inner()
+            .remove(id)
+            .unwrap();
+        let body = response(
+            &provider.protocol,
+            json!([{"index":"1","explanation":"mock","content":"A"}]),
+        );
+        let (url, request) = serve(200, body).await;
+        let preset_path = tauri::Url::parse(&provider.base_url)
+            .unwrap()
+            .path()
+            .to_owned();
+        provider.base_url = format!("{url}{preset_path}");
+        provider.api_key = Some(ApiKey::new("mock-api-key".into()).unwrap());
+
+        let answers = solve(
+            &provider,
+            vec![Question {
+                id: "1".into(),
+                kind: "single".into(),
+                stem: "Choose A".into(),
+                options: vec!["A".into()],
+            }],
+        )
+        .await
+        .unwrap();
+        let request = request.await.unwrap();
+        assert!(request.head.starts_with(&format!("POST {path} ")));
+        assert_eq!(request.headers["authorization"], "Bearer mock-api-key");
+        assert_eq!(request.body["model"], model);
+        assert_eq!(
+            request
+                .body
+                .get("enable_thinking")
+                .and_then(serde_json::Value::as_bool),
+            thinking
+        );
+        assert_eq!(request.body["stream"], false);
+        assert!(request.body.get("extra_body").is_none());
+        assert_eq!(answers.len(), 1);
+        assert_eq!(answers[0].content, "A");
+    }
+}
+
+#[tokio::test]
 async fn sends_protocol_requests_with_application_headers() {
     for protocol in [
         LLMProtocol::OpenAIChatCompletions,

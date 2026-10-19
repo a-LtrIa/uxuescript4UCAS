@@ -66,20 +66,18 @@ impl Config {
             config.entry("log_level").or_insert(level);
         }
         let mut config: Self = config.try_into()?;
-        if version_changed {
-            let providers = config.llm.providers.get_mut();
-            for (id, preset) in LLMConfig::default().providers.into_inner() {
-                if let Some(provider) = providers.get_mut(&id)
-                    && !provider.is_custom
-                {
-                    let selected = provider
-                        .chosen_model
-                        .and_then(|index| provider.models.get(index));
-                    provider.chosen_model = selected
-                        .and_then(|name| preset.models.iter().position(|model| model == name))
-                        .or(preset.chosen_model);
-                    provider.models = preset.models;
-                }
+        let providers = config.llm.providers.get_mut();
+        for (id, preset) in LLMConfig::default().providers.into_inner() {
+            // 已保存的 provider 映射不会自动包含后续新增的内置项，同版本加载时也需补齐。
+            let provider = providers.entry(id).or_insert_with(|| preset.clone());
+            if version_changed && !provider.is_custom {
+                let selected = provider
+                    .chosen_model
+                    .and_then(|index| provider.models.get(index));
+                provider.chosen_model = selected
+                    .and_then(|name| preset.models.iter().position(|model| model == name))
+                    .or(preset.chosen_model);
+                provider.models = preset.models;
             }
         }
         config.version = env!("CARGO_PKG_VERSION").into();
