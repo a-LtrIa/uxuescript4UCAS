@@ -1,7 +1,7 @@
 {
   "name": "uxuescript",
   "private": true,
-  "version": "2.3.1",
+  "version": "2.3.2",
   "type": "module",
   "scripts": {
     "build:windows": "pnpm tauri build && powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-windows-x64.ps1",
