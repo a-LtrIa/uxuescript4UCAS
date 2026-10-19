@@ -41,6 +41,20 @@ const openIssues = async () => {
           <li><strong>确认启动：</strong>在弹窗中确认启动。</li>
         </ol>
       </section>
+      <section aria-labelledby="guide-issues-title">
+        <h2 id="guide-issues-title">常见问题</h2>
+        <p>
+          倍速后任务不完成或不跳转：部分课程按观看时长解锁，请将 Speed Lock
+          留空，以原速重试。
+        </p>
+        <p>
+          最小化后视频暂停：部分电脑会冻结课程页，可保持窗口不最小化，用 Alt+Tab
+          切换应用。
+        </p>
+        <p>
+          密钥有效仍不答题：若日志出现 429，表示服务限流，可稍后重试或更换模型/供应商。
+        </p>
+      </section>
       <section aria-labelledby="guide-notes-title">
         <h2 id="guide-notes-title">使用说明</h2>
         <p>

@@ -1,139 +1,88 @@
 # 架构概览
 
-uXueScript 由 Vue 前端、Tauri/Rust 后端和课程 WebView 组成。课程自动化逻辑保留为独立的 `core.js` 文件，可由桌面端注入，也可直接复制到浏览器控制台执行。
+uXueScript 有三个运行环境：本地 Vue 界面、Rust/Tauri 宿主、远程课程页面。课程自动化脚本另有可直接复制执行的浏览器模式。理解它们的职责与通信边界，是修改项目的起点。
 
 ```mermaid
-flowchart TB
-    %% 外部服务与模型生态
-    subgraph External["外部服务与模型生态"]
-        CXServer["超星学习通服务器<br/>(mooc1 / mooc2 / passport2)"]
-        LLMCloud["各大 LLM 供应商 API<br/>(DeepSeek / OpenAI / Gemini / 智谱 等)"]
-        OllamaLocal["本地 Ollama 服务<br/>(http://localhost:11434)"]
-    end
-
-    %% 前端展示与交互层
-    subgraph Frontend["前端展示与交互层 (Vue 3 + TS)"]
-        MainView["主控制面板 (TheMainPage.vue)<br/>- 课程看板、控制栏与配置面板"]
-        MaskView["动画遮罩层 (TheMaskPage.vue)<br/>- 启动开场动画与淡出退出"]
-        SpectaClient["类型安全 IPC 客户端 (cmds.ts)"]
-    end
-
-    %% Rust / Tauri 2 宿主与调度核心
-    subgraph Backend["Rust / Tauri 2 宿主与调度核心"]
-        MacroHandler["统一命令与权限宏 (uxs_commands)"]
-        WindowEngine["窗口几何管理 (app::window / webview)<br/>- 齐次比例自适应布局与历史栈"]
-        RouteEngine["页面分类与脚本调度 (core::url / script)<br/>- 页面特征识别与动态 eval 注入"]
-        ConfigStore["纯 DTO 配置管理 (config)<br/>- API Key 脱敏与运行参数持久化"]
-        FontParser["字体逆向引擎 (typr.rs 与 mapper.rs)<br/>- TTF 轮廓解析与码表哈希还原"]
-        LLMDispatcher["LLM 并发分发器 (dispatcher.rs)<br/>- 题目切片、信号量限流与 429 重试"]
-    end
-
-    %% 内嵌课程运行环境
-    subgraph WebviewContext["内嵌课程运行环境 (Webview: 'chaoxing')"]
-        CoreEngine["core.js 自动化引擎 (自包含单文件)"]
-        StateGuard["后台运行与失焦守护<br/>- 拦截失焦打断并保持聚焦活跃态"]
-        DOMWalker["DOM 穿透探测器<br/>- 章节树遍历与多层嵌套 iframe 穿透"]
-        TaskPipeline["任务执行步进器<br/>- 视频倍速锁定、PDF 滚动与富文本答题"]
-        CourseDOM["超星课程页面 DOM"]
-    end
-
-    %% 通信与数据流向
-    MainView --> SpectaClient
-    SpectaClient <-->|Tauri IPC| MacroHandler
-    MaskView <-->|遮罩 IPC 与定向事件| MacroHandler
-
-    MacroHandler --> WindowEngine
-    MacroHandler --> RouteEngine
-    MacroHandler --> ConfigStore
-    MacroHandler --> FontParser
-    MacroHandler --> LLMDispatcher
-
-    WindowEngine -.->|齐次比例几何贴合与缩放| CourseDOM
-    RouteEngine ==>|页面加载完成后动态注入| CoreEngine
-
-    CoreEngine --> StateGuard
-    CoreEngine --> DOMWalker
-    DOMWalker --> TaskPipeline
-    TaskPipeline <-->|交互操作与完成监听| CourseDOM
-
-    TaskPipeline -->|1. 提取加密 HTML 题目 (solve_quiz)| MacroHandler
-    MacroHandler -->|调用解析| FontParser
-    FontParser -->|还原明文题目| LLMDispatcher
-    LLMDispatcher <==>|HTTP POST 推理请求| LLMCloud
-    LLMDispatcher <==>|本地 HTTP API| OllamaLocal
-    LLMDispatcher -->|2. 返回结构化答案| TaskPipeline
-
-    TaskPipeline -.->|3. 提交任务进度 (send_status)| MacroHandler
-    MacroHandler -.->|status-update 定向发送到 main| MainView
-
-    CourseDOM <==>|加载课程与音视频资源| CXServer
+flowchart LR
+    UI[本地 Vue 界面与遮罩] <-->|IPC / 定向事件| Host[Rust / Tauri 宿主]
+    Host -->|初始化与页面脚本| Course[远程课程 WebView]
+    Course -->|配置 / 确认 / 测验 / 进度 IPC| Host
+    Host --> Quiz[题目提取与字体还原]
+    Quiz <-->|模型协议| LLM[外部 LLM / 本地 Ollama]
+    Host <-->|加载与保存| Config[用户配置]
+    Host <-->|检查 / 下载 / 安装| Update[签名更新服务]
+    Browser[浏览器控制台] --> Standalone[独立 core.js / 非测验任务]
 ```
 
-## 前端
+## 宿主、界面与 WebView
 
-`src` 包含 Vue 页面、布局、组件和由 Tauri Specta 生成的命令绑定。Configuration 管理模型和课程选项；课程仪表盘订阅后端状态事件；WebView 控制栏负责课程页面的导航和缩放。
+Rust 宿主拥有窗口、配置和共享状态；Vue 界面通过生成的 IPC 客户端操作它们。课程页面运行在独立的远程 WebView 中，不属于 Vue 的 DOM。
 
-## 后端与 WebView
+| WebView | 职责 |
+| --- | --- |
+| `main` | 本地配置、课程仪表盘与导航控制 |
+| `chaoxing` | 学习通页面与课程自动化 |
+| `mask` | 全窗口开屏、确认、退出和更新下载展示 |
+| `chaoxing-mask` | 覆盖课程区域的启动确认 |
 
-`src-tauri/src` 负责窗口、配置、命令和自动化逻辑。课程 WebView 访问学习通页面；后端在页面加载完成后按 URL 类型注入 `core.js`、课程信息读取脚本或登录辅助脚本。
+窗口与各 WebView 在开屏前已创建，课程页也已开始导航。遮罩监听就绪后显示窗口，动画再显示内容；显示内容不触发课程页重新加载。课程确认与全窗口确认分别处理，课程导航开始时结束旧页面的确认。
 
-### 启动、布局与页面链路
+课程页与课程遮罩共享原生位置和尺寸，并与 Vue 的比例布局对齐。调整课程区域时，需同时检查原生几何和 CSS；仅改变其中一侧会破坏覆盖关系。
 
-- `app::window::init` 创建隐藏的全屏 `app` 窗口，依次创建 `main`、`chaoxing`、
-  `chaoxing-mask`、`mask` 四个子 WebView；前三个初始隐藏。开屏遮罩注册事件监听后
-  调用 `start_mask` 显示窗口，开屏动画通过 `show_content` 显示主界面和课程页，
-  动画完成后调用 `hide_mask`。课程页在此之前已创建并开始导航，显示内容不触发 `reload`。
-- `main` 与 `mask` 覆盖整个窗口；课程页及其确认遮罩共享位置 `(0.51W, 0.46H)`、
-  尺寸 `(0.48W, 0.48H)`。窗口缩放时按逻辑尺寸重算，与前端右侧 `50vw` 布局、
-  `48vw` 课程容器及 `53vh` 区域（含 `5vh` 控制栏）配合，属于比例布局。
-- `chaoxing` 先安装 `webview-log.js`（控制台转发）和全框架初始化脚本
-  `iframe-init.js`（失焦事件处理、可见性 API 覆盖和新窗口链接转为顶层导航）。
-  `core.js` 不由初始化脚本直接执行，而是在页面加载 `Finished` 回调中按 URL 分类 `eval`。
-- 导航分类只接受 `chaoxing.com` 及其子域：`i` 分类为主页，`mooc1` 的 `/mycourse/`
-  路径分类为课程，`mooc2-ans` 分类为课程概览，`passport2` 的 `/login` 路径分类为登录。
-  其余超星页面可导航但不注入上述任务脚本；域外 URL 为 `Unknown`，导航回调拒绝它。
-- 每次 `Finished` 先向 `main` 发出 `url-update` 和 `status-update(cancel)`，
-  再更新自维护 URL 历史栈，最后注入相应脚本。课程概览脚本缓存课程 ID、标题与封面；
-  登录辅助脚本点击 `.check-input`，并不提交账号密码。
+课程仪表盘消费定向发送到 `main` 的进度事件，不独立查询平台完成状态。页面加载完成时先重置状态，课程脚本启动后再持续报告。共用的遮罩组件在各自 WebView 内管理展示与事件。
 
-### IPC 能力边界
+入口：[窗口与生命周期](../../src-tauri/src/app/window.rs)、[WebView 创建](../../src-tauri/src/app/webview.rs)、[主布局](../../src/layouts/TheMainLayout.vue)、[遮罩交互](../../src/TheMaskManager.vue)。
 
-能力配置按 WebView 标签区分：本地 `main` 使用 `webview.default`，两个本地遮罩使用
-`webview.mask`；远程课程页使用 `webview.chaoxing`，远程匹配范围是
-`https://*.chaoxing.com/**`。这些标签没有重叠，课程页不因同属一个窗口就获得
-主界面或遮罩的应用命令权限。
+## IPC 与权限
 
-当前 `commands-chaoxing` 只允许 `confirm`、`insert_course_meta_map`、`options`、
-`platform`、`solve_quiz`、`send_status`；此外课程能力还包含 `core:default`、
-`opener:default` 和 `log:default`，并非“只有答题 IPC”。导航分类范围与远程 IPC
-匹配范围也不是同一规则，不能仅凭“属于超星域”推断拥有远程权限。
+Rust 命令声明是注册、TypeScript 绑定和应用命令权限的共同来源。`uxs_commands` 扫描命令模块，生成 handler 与各 WebView 的 allowlist；绑定通过 Tauri Specta 导出。修改命令或 DTO 应沿此管线同步，不手改生成文件。
 
-## 独立脚本
+能力按 WebView 标签及远程来源配置。课程页不会因与主界面共享窗口而继承主界面的权限；其有效能力还包含显式授予的插件权限，不能只看应用命令 allowlist。允许页面导航的 URL 分类与允许远程 IPC 的来源匹配是两套规则，需要分别检查。
 
-`src-tauri/src/scripts/core.js` 是自包含交付文件，不依赖 ES module 导入，以保留直接复制到浏览器控制台执行的能力。无后端使用方式见[无后端模式](../backend-free.md)。
+入口：[命令声明](../../src-tauri/src/commands.rs)、[生成宏](../../src-tauri/crates/uxs_commands/src/lib.rs)、[能力配置](../../src-tauri/capabilities)、[前端绑定](../../src/services/cmds.ts)。同步操作见[构建指南](../development/build.md)。
 
-脚本使用集中选择器、DOM 等待、章节→页签→任务 iframe 遍历及分层错误处理。
-确认启动后才执行课程循环；视频/PDF 处理与任务容器完成类名监听并行等待。
-一般 DOM 等待默认超时为 5 秒，任务点完成监听本身没有超时。任务分类发生在任务级
-错误捕获之前，因此无法识别的任务（含无后端 Quiz）由外层页签处理捕获，并跳过该页签
-剩余任务。全课程处理后若仍存在不可点击的阻塞章节，会等待 5 秒后重新扫描。
-这里的 `finish` 表示脚本流程结束，不是后端独立核验所有任务都已完成。
+## 配置归属
 
-桌面模式可读取配置、通过遮罩异步确认、调用 Quiz 后端并发送进度；无后端模式使用
-默认配置和原生确认框，只支持已实现的非 Quiz 任务。桌面初始化脚本对各框架做失焦处理，
-独立复制 `core.js` 则在确认启动后处理其执行所在的顶层窗口，不等同于逐框架初始化。
+| 数据 | 归属与生效方式 |
+| --- | --- |
+| 版本、应用标识、更新端点及安装器共享值 | `config/build.json` 经同步脚本写入各构建配置 |
+| 应用显示信息、课程首页与安装器参数 | 运行时读取已同步的 Tauri 配置或包信息 |
+| 模型、课程选项、主题等用户偏好 | 加载到 Rust 配置状态，由命令修改并保存到本地 TOML |
+
+界面操作先修改内存配置，显式保存和正常退出才写入磁盘。加载时补齐缺失的内置供应商；用户配置中的 `version` 用于升级迁移，不决定应用显示版本。升级时会刷新已有内置供应商的模型预设，并尝试按名称保留模型选择，自定义供应商不走此刷新。
+
+API Key 的日志格式化会脱敏，配置序列化仍保留明文。读取或解析配置失败会回退默认配置。
+
+入口：[用户配置与迁移](../../src-tauri/src/config.rs)、[配置命令](../../src-tauri/src/commands/config.rs)、[宿主配置](../../src-tauri/src/app/config.rs)。
+
+## 课程自动化与独立脚本
+
+注入分为两个阶段：WebView 初始化时安装日志、frame 环境适配和课程元数据采集脚本；页面加载完成后，再按 URL 分类注入课程核心或登录辅助脚本。元数据采集在所有 frame 安装，通过顶层与课程列表 frame 的消息协作收集课程信息，不由加载完成回调按课程概览 URL 注入。
+
+`core.js` 通过章节、页签和任务 iframe 遍历驱动页面，任务处理依赖学习通 DOM。选择器、等待和失败处理留在这条执行链中；桌面端的逐 frame 环境适配由初始化脚本承担，核心脚本在确认启动后也会处理所在窗口的失焦行为。
+
+单文件是交付契约：同一份 `core.js` 既可由 Tauri 嵌入并注入，也可直接复制到浏览器控制台。桌面模式增加配置、异步确认、测验求解与进度 IPC；独立模式使用默认配置和原生确认，处理支持的非 Quiz 任务。重构不能引入破坏直接复制执行的模块依赖。
+
+脚本报告的 `finish` 表示执行流程结束，不代表后端独立核验了平台全部任务。视频/PDF 处理还会等待页面的任务完成标记，不能把动作执行完毕与任务点完成混为一谈。
+
+入口：[注入调度](../../src-tauri/src/core/script.rs)、[URL 分类](../../src-tauri/src/core/url.rs)、[核心脚本](../../src-tauri/src/scripts/core.js)、[元数据采集](../../src-tauri/src/scripts/course-list-metadata.js)。
 
 ## 测验与模型
 
-`src-tauri/src/core/quiz` 负责 HTML 提取、加密字体映射和模型请求。该模块依赖桌面端后端，不属于独立脚本模式。
+课程脚本提交题目 HTML；Rust 提取题目、按字形路径还原混淆文字，再按配置的模型协议分批请求，答案返回课程页面填入和提交。开启人工核验时，脚本在提交前等待用户确认。字体映射针对字形，不是整个字体文件的哈希；未匹配字符保留原样。
 
-- 字体还原从页面内嵌的 Base64 TTF 提取字符映射与字形，将简单正轮廓字形转换为
-  Typr.js 兼容路径 JSON，计算 MD5 并取末 8 位查询内置字典；不是对整个字体文件做哈希。
-  未匹配字符保留原样，复合字形和空轮廓不进入这条字形匹配路径。
-- 模型请求按每批最多 5 题、最多 10 批并发执行，支持 OpenAI Chat Completions、
-  OpenAI Responses 和 Google Gemini 三种协议。当前自定义供应商 UI 固定使用
-  Chat Completions，不能在界面切换协议。
-- 结果按批次创建顺序汇总，不额外按题号重排或校验答案数量；任一批次出错，整个求解
-  调用返回错误，而不是返回已成功批次的部分答案。
-- 仅 HTTP 429 自动重试，最多重试 3 次（总计最多 4 次请求）。优先采用整数秒
-  `Retry-After`，否则依次等待 1、2、4 秒；网络错误、5xx 和答案 JSON 解析错误不重试。
+提供商配置是数据，协议分发负责请求与响应处理。后端支持的协议范围与配置界面允许编辑的范围不同，不能由后端类型推断 UI 已提供全部入口。
+
+分发器限制批次并发，按批次创建顺序汇总结果。任一批次失败会使整个调用返回错误，不返回部分成功答案；当前自动重试针对 HTTP 429，不覆盖网络错误、其他错误状态或答案解析失败。
+
+入口：[测验处理](../../src-tauri/src/core/quiz.rs)、[协议分发](../../src-tauri/src/core/quiz/llm/dispatcher.rs)、[供应商交互](../../src/composables/useLLMProviders.ts)。
+
+## 更新与分发
+
+开屏结束后由主界面发起更新检查。前端负责提示和安装方式分流，Rust 使用 Tauri updater 检查、下载和安装签名包；检查所得资源由发起调用的 WebView 持有，前端在流程结束时释放。
+
+Windows MSI 安装通过注册表标记识别，便携版转到下载页。下载可取消，进入安装阶段后不再走下载取消；安装前复用正常退出的配置保存与动画收尾。
+
+GitHub 与 Gitee 分发同一组构建产物和签名，镜像清单改写下载地址。端点顺序影响更新检查；选中某份清单后的下载失败，不会自动改从另一端点下载。
+
+入口：[前端更新流程](../../src/composables/useUpdater.ts)、[宿主更新操作](../../src-tauri/src/commands/updater.rs)、[发布工作流](../../.github/workflows/release.yml)。发布与镜像操作见[发布指南](../development/release.md)。
