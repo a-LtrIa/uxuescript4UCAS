@@ -4,7 +4,7 @@ Read only the sections that apply to the current task. The repository-wide rules
 
 ## Code Generation and Architecture
 
-- Before changing macros, handlers, or generated code, inspect the existing `auto_handler` pipeline and relevant helper crates. Extend that pipeline where it already owns the behavior; avoid duplicate scripts, ad-hoc AST string parsers, or scattered initialization.
+- Before changing macros, handlers, or generated code, inspect the existing `uxs_commands` pipeline and relevant helper crates. Extend that pipeline where it already owns the behavior; avoid duplicate scripts, ad-hoc AST string parsers, or scattered initialization.
 - For Rust type reflection and TypeScript bindings, prefer compiler-supported mechanisms or established crates such as `tauri_specta` over a custom string-to-type mapper. A local implementation is reasonable only when the existing tools do not meet a demonstrated requirement; explain that requirement.
 - Keep related compile-time outputs, such as permission JSON and TypeScript bindings, coordinated within the existing macro traversal when extending it. Keep `src/lib.rs` and `src/main.rs` free of generation/export boilerplate.
 - Preserve the primary Tauri handler routing, including unannotated IPC commands, when adding sub-system helpers or macro expansions.

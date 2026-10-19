@@ -12,9 +12,13 @@
 
 ## Read the Relevant Engineering Guidance
 
-Before changing code, organizing commits, or preparing a release, read the relevant entries in [`lession.md`](lession.md). It records verified AI collaboration mistakes and the rules that would have prevented them; update it when a correction exposes a new recurring risk.
+Before changing code, organizing commits, or preparing a release, read the relevant entries in [`LESSONS.md`](LESSONS.md). It records verified AI collaboration mistakes and the rules that would have prevented them; update it when a correction exposes a new recurring risk.
 
 Follow the shared design principles in [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) when writing or reviewing code. It defines coding conduct, file independence, side-effect scope, and structural boundaries.
+
+Use the [architecture overview](docs/architecture/overview.md) for subsystem boundaries, the [build guide](docs/development/build.md) for development and generation commands, the [test guide](tests/README.md) for validation, and the [release guide](docs/development/release.md) for delivery.
+
+Keep documentation within its subject: record necessary contracts, design reasons, and operations; keep related explanations locally complete and link directly to another subject only when needed. Update the owning document rather than duplicating implementation details or appending task history.
 
 The detailed rules in [`.agents/AGENTS.md`](.agents/AGENTS.md) are task-specific. Read the matching section before work in that area; do not load every section for an unrelated change.
 
