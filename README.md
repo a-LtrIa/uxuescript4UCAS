@@ -113,7 +113,13 @@ Windows 用户可选择 MSI 安装包或便携 EXE；macOS Apple Silicon 用户�
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=unraous/uxuescript&type=Date)](https://www.star-history.com/#unraous/uxuescript&Date)
+<a href="https://www.star-history.com/#unraous/uxuescript&Date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=unraous/uxuescript&amp;type=Date&amp;transparent=true&amp;theme=dark">
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=unraous/uxuescript&amp;type=Date&amp;transparent=true">
+    <img src="https://api.star-history.com/svg?repos=unraous/uxuescript&amp;type=Date&amp;transparent=true" alt="Star History Chart">
+  </picture>
+</a>
 
 ## 开源许可证
 
