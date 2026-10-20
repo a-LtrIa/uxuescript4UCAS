@@ -77,7 +77,7 @@ describe("useUpdater", () => {
     expect(mocks.closeResource).toHaveBeenCalledOnce();
   });
 
-  it.each(["windows", "darwin"])(
+  it.each(["windows", "macos"])(
     "downloads the update on %s and relaunches only on macOS",
     async (platform) => {
       vi.mocked(commands.platform).mockResolvedValue(platform);
@@ -93,12 +93,12 @@ describe("useUpdater", () => {
       });
       await useUpdater().checkForUpdates("2.1.4");
       expect(commands.downloadUpdate).toHaveBeenCalledWith(42);
-      expect(relaunch).toHaveBeenCalledTimes(platform === "darwin" ? 1 : 0);
+      expect(relaunch).toHaveBeenCalledTimes(platform === "macos" ? 1 : 0);
       expect(mocks.closeResource).toHaveBeenCalledOnce();
     },
   );
 
-  it.each(["windows", "darwin"])(
+  it.each(["windows", "macos"])(
     "does not relaunch or show an error after cancelling a download on %s",
     async (platform) => {
       vi.mocked(commands.platform).mockResolvedValue(platform);
@@ -113,7 +113,7 @@ describe("useUpdater", () => {
 
   it("shows an error if download or installation fails", async () => {
     const error = new Error("update failed");
-    vi.mocked(commands.platform).mockResolvedValue("darwin");
+    vi.mocked(commands.platform).mockResolvedValue("macos");
     vi.mocked(commands.confirm).mockResolvedValue(true);
     vi.mocked(commands.downloadUpdate).mockRejectedValue(error);
     await useUpdater().checkForUpdates("2.1.4");

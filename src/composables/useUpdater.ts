@@ -30,7 +30,7 @@ export function useUpdater() {
       }
 
       const installed = await commands.downloadUpdate(update.rid);
-      if (installed && platform === "darwin") await relaunch();
+      if (installed && platform === "macos") await relaunch();
     } catch (error) {
       if (acceptedUpdate) {
         await showError("下载或安装更新失败：", error);

@@ -79,6 +79,7 @@ onUnmounted(() => {
 
 .content {
   flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: row;
 }
