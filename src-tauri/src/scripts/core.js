@@ -31,6 +31,10 @@
       quizSubmitId: "#videoquiz-submit",
       quizContinueId: "#videoquiz-continue",
     },
+    audio: {
+      tag: "#audio audio.vjs-tech",
+      launchBtnClass: "#audio .vjs-play-control",
+    },
     pdf: { iframeId: "#panView" },
     quiz: {
       titleClass: ".newZy_TItle",
@@ -57,6 +61,7 @@
     },
     urls: {
       video: "/ananas/modules/video/",
+      audio: "/ananas/modules/audio/",
       pdf: "/ananas/modules/pdf/",
       quiz: "/ananas/modules/work/",
     },
@@ -118,7 +123,7 @@
 
     /**
      * 非空时只处理列出的附件类型，不受任务点标识或完成状态限制，也不等待任务点完成标记；处理后确认，异常时弹窗。
-     * @type {Array<"Video" | "PDF" | "Quiz" | "Other">}
+     * @type {Array<"Video" | "Audio" | "PDF" | "Quiz" | "Other">}
      */
     debugTaskTypes = [];
 
@@ -398,10 +403,11 @@
       : "Finished";
   };
 
-  /** @type {(taskDoc: Document) => "Video" | "PDF" | "Quiz" | "Other"} */
+  /** @type {(taskDoc: Document) => "Video" | "Audio" | "PDF" | "Quiz" | "Other"} */
   const classifyTask = (taskDoc) => {
     const url = taskDoc.location.href;
     if (url.includes(SELECTORS.urls.video)) return "Video";
+    if (url.includes(SELECTORS.urls.audio)) return "Audio";
     if (url.includes(SELECTORS.urls.pdf)) return "PDF";
     if (url.includes(SELECTORS.urls.quiz)) return "Quiz";
     return "Other";
@@ -777,6 +783,53 @@
   };
 
   /** @type {(taskDoc: Document) => Promise<void>} */
+  const handleAudio = async (taskDoc) => {
+    console.info("开始处理Audio任务点");
+    const launchBtn = await wait.element(
+      null,
+      SELECTORS.audio.launchBtnClass,
+      taskDoc,
+      "未找到音频播放按钮",
+    );
+    const audioEl = /** @type {HTMLAudioElement} */ (
+      await wait.element(
+        null,
+        SELECTORS.audio.tag,
+        taskDoc,
+        "未找到音频播放控件",
+      )
+    );
+    if (config.muteVideo) muteVideo(audioEl);
+
+    const isStarted = await wait.until(() => {
+      if (audioEl.currentTime > 0 && !audioEl.paused) return true;
+      if (audioEl.paused) launchBtn.click();
+      return null;
+    });
+    assert(isStarted, "音频多次尝试无法启动播放");
+    if (config.lockSpeed != null) applySpeed(audioEl, config.lockSpeed);
+
+    // preload=none 的播放器启动后才加载时长。
+    const duration = await wait.until(() =>
+      Number.isFinite(audioEl.duration) && audioEl.duration > 0
+        ? audioEl.duration
+        : null,
+    );
+    assert(duration != null, "等待音频时长超时");
+    audioEl.currentTime = Math.max(0, duration - 1);
+    console.info("Audio任务点处理完成，等待平台完成标记");
+
+    if (config.debugTaskTypes.includes("Audio")) {
+      assert(
+        await confirm(
+          "[DEBUG] Audio 任务点处理完成。点击 [确定] 继续，点击 [取消] 中断。",
+        ),
+        "调试中断：用户取消了 Audio 任务点",
+      );
+    }
+  };
+
+  /** @type {(taskDoc: Document) => Promise<void>} */
   const handlePDF = async (taskDoc) => {
     console.info("开始处理PDF任务点");
     const pdfDoc = await wait.iframeDoc(
@@ -1055,6 +1108,7 @@
 
       const taskHandler = {
         Video: handleVideo,
+        Audio: handleAudio,
         PDF: handlePDF,
         Quiz: handleQuiz, // 依赖tauriInvoke来AI答题
         Other: null,

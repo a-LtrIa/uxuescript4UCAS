@@ -10,6 +10,7 @@ function setup(
 ) {
   const handlers = {
     Video: vi.fn(async () => {}),
+    Audio: vi.fn(async () => {}),
     PDF: vi.fn(async () => {}),
     Quiz: vi.fn(async () => {}),
   };
@@ -19,6 +20,7 @@ function setup(
   };
   const { config, wait, handleTab } = loadCore(context, {
     handleVideo: handlers.Video,
+    handleAudio: handlers.Audio,
     handlePDF: handlers.PDF,
     handleQuiz: handlers.Quiz,
   });
@@ -65,6 +67,34 @@ function setup(
     run: () => handleTab(chapter),
   };
 }
+
+describe("audio task dispatch", () => {
+  it("runs standalone audio and waits for its task completion marker", async () => {
+    const page = setup([], false);
+    page.add("audio", true);
+    await page.run();
+    expect(page.handlers.Audio).toHaveBeenCalledOnce();
+    expect(page.wait.taskPointComplete).toHaveBeenCalledOnce();
+  });
+
+  it("skips completed audio tasks", async () => {
+    const page = setup([], false);
+    page.add("audio", true, true);
+    await page.run();
+    expect(page.handlers.Audio).not.toHaveBeenCalled();
+    expect(page.wait.taskPointComplete).not.toHaveBeenCalled();
+  });
+
+  it("selects audio in debug mode without waiting for completion", async () => {
+    const page = setup(["Audio"], false);
+    page.add("audio", false, true);
+    page.add("video", true);
+    await page.run();
+    expect(page.handlers.Audio).toHaveBeenCalledOnce();
+    expect(page.handlers.Video).not.toHaveBeenCalled();
+    expect(page.wait.taskPointComplete).not.toHaveBeenCalled();
+  });
+});
 
 describe("debug task selection", () => {
   it.each([true, false])(
@@ -184,7 +214,7 @@ describe("debug task selection", () => {
   });
 
   it.each([
-    ["audio", "未识别的任务点类型:"],
+    ["unknown", "未识别的任务点类型:"],
     ["work", "未开启后端服务，无法处理Quiz任务点"],
   ])(
     "continues after a %s assertion without starting its completion watcher",

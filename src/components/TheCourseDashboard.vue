@@ -47,7 +47,7 @@ const taskInfoText = computed(() => {
       const task = courseInfo.value.task.index + 1;
       const category = courseInfo.value.task.category;
       const categories: Record<string, string> = {
-        Video: label("videoTask"), PDF: label("pdfTask"),
+        Video: label("videoTask"), Audio: label("audioTask"), PDF: label("pdfTask"),
         Quiz: label("quizTask"), Other: label("otherTask"),
       };
       const name = categories[category] ?? category;

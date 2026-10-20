@@ -2,12 +2,13 @@ import { runInNewContext } from "node:vm";
 import { vi } from "vitest";
 import script from "../../src-tauri/src/scripts/core.js?raw";
 
-type TaskType = "Video" | "PDF" | "Quiz" | "Other";
+type TaskType = "Video" | "Audio" | "PDF" | "Quiz" | "Other";
 type PreAction = (() => void | Promise<void>) | null;
 type TaskHandler = (taskDoc: Document) => Promise<void>;
 
 interface Overrides {
   handleVideo: TaskHandler;
+  handleAudio: TaskHandler;
   handlePDF: TaskHandler;
   handleQuiz: TaskHandler;
   preserveFocusState(): void;
@@ -37,6 +38,8 @@ interface CoreApi {
     debugTaskTypes: TaskType[];
     hasBackend: boolean;
     switchingCd: number | null;
+    muteVideo: boolean;
+    lockSpeed: number | null;
     loadFromBackend(): Promise<void>;
   };
   wait: {
@@ -67,6 +70,7 @@ interface CoreApi {
   };
   handleTab(chapter: Document): Promise<void>;
   handleQuiz: TaskHandler;
+  handleAudio: TaskHandler;
   sleep(ms: number, fluctuationPercent?: number): Promise<void>;
   switchingCooldown(): Promise<void>;
   resolveInteractiveQuizAnswer(
@@ -96,11 +100,12 @@ export function loadCore(
     entry,
     `
     ${assignments.join("\n")}
-    return { config, wait, handleTab, handleQuiz, sleep, switchingCooldown, resolveInteractiveQuizAnswer, main };
+    return { config, wait, handleTab, handleQuiz, handleAudio, sleep, switchingCooldown, resolveInteractiveQuizAnswer, main };
   `,
   );
   const sandbox = {
     console: { info: vi.fn(), error: vi.fn() },
+    performance,
     ...context,
     window: {
       confirm: window.confirm.bind(window),

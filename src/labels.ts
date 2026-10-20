@@ -41,6 +41,7 @@ const labels = {
   taskPending: { en: "Task not ready", zh: "任务点待加载" },
   tasksFinished: { en: "All done", zh: "所有任务点均已完成" },
   videoTask: { en: "Video", zh: "视频" },
+  audioTask: { en: "Audio", zh: "音频" },
   pdfTask: { en: "Document", zh: "文档" },
   quizTask: { en: "Quiz", zh: "测验" },
   otherTask: { en: "Other", zh: "其他" },
