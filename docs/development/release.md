@@ -2,6 +2,8 @@
 
 发布入口是 [Release 工作流](../../.github/workflows/release.yml)。推送 `v*` 标签后，先运行共享 CI，再构建 Windows x64 MSI/便携 EXE 与 macOS ARM64 DMG/更新包，发布到 GitHub Release，最后同步 Gitee。
 
+同次发布还会上传 `core.js` 和 `uxuescript.user.js`，并随其他附件同步至 Gitee。`core.js` 原样复制，油猴版添加元数据后内嵌同一份脚本，版本读取 `config/build.json`。可运行 `pnpm build:scripts` 本地生成至 `dist/scripts/`。当前不接入脚本站自动发布。
+
 ## 发布准备
 
 在 GitHub 仓库的 **Settings → Secrets and variables → Actions** 配置：

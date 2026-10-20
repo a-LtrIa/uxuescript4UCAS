@@ -24,6 +24,34 @@ jobs:
     if: github.event_name == 'push'
     uses: ./.github/workflows/ci.yml
 
+  scripts:
+    name: Build browser scripts
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+
+      - name: Validate release version
+        run: |
+          VERSION="$(node --input-type=module -e 'import fs from "node:fs"; console.log(JSON.parse(fs.readFileSync("config/build.json", "utf8")).version)')"
+          test "$VERSION" = "${GITHUB_REF_NAME#v}"
+
+      - name: Build browser scripts
+        run: node scripts/build-scripts.mjs
+
+      - name: Upload browser scripts
+        uses: actions/upload-artifact@v4
+        with:
+          name: scripts-release
+          path: dist/scripts/*.js
+          if-no-files-found: error
+
   windows:
     name: Build Windows packages
     runs-on: windows-latest
@@ -242,6 +270,7 @@ jobs:
     needs:
       - windows
       - macos
+      - scripts
 
     steps:
       - name: Check out source

@@ -1,9 +1,10 @@
 {
   "name": "uxuescript",
   "private": true,
-  "version": "2.3.2",
+  "version": "2.4.0",
   "type": "module",
   "scripts": {
+    "build:scripts": "node scripts/build-scripts.mjs",
     "build:windows": "pnpm tauri build && powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-windows-x64.ps1",
     "build:updater.mock": "node tests/updater/build.mjs",
     "dev": "node scripts/sync-config.mjs && vite",
