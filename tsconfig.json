@@ -33,7 +33,8 @@
     "src/**/*.tsx",
     "src/**/*.vue",
     "tests/**/*.ts",
-    "src-tauri/src/scripts/core.js"
+    "src-tauri/src/scripts/core.js",
+    "src-tauri/src/scripts/work.js"
   ],
   "exclude": ["**/*.mjs"],
   "references": [{ "path": "./tsconfig.node.json" }]
