@@ -39,6 +39,7 @@
           "set_theme",
           "set_zoom",
           "show_content",
+          "solve_homework",
           "solve_quiz",
           "switch_model",
           "switch_provider",

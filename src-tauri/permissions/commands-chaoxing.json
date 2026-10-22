@@ -9,6 +9,7 @@
           "options",
           "platform",
           "send_status",
+          "solve_homework",
           "solve_quiz"
         ],
         "deny": []

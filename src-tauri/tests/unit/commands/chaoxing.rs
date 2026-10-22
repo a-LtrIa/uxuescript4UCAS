@@ -6,6 +6,13 @@ use serde_json::{Value, json};
 static CONFIG_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
 async fn probe(provider: &LLMProvider) -> CommandsResult<String> {
+    probe_with(provider, super::healthy()).await
+}
+
+async fn probe_with<T>(
+    provider: &LLMProvider,
+    action: impl std::future::Future<Output = CommandsResult<T>>,
+) -> CommandsResult<T> {
     let _lock = CONFIG_LOCK.lock().await;
     let id = "__healthy_test__".to_owned();
     let previous_id = std::mem::replace(&mut *CONFIG.llm.active_provider.lock(), id.clone());
@@ -14,7 +21,7 @@ async fn probe(provider: &LLMProvider) -> CommandsResult<String> {
         .providers
         .lock()
         .insert(id.clone(), provider.clone());
-    let result = super::healthy().await;
+    let result = action.await;
     *CONFIG.llm.active_provider.lock() = previous_id;
     let mut providers = CONFIG.llm.providers.lock();
     if let Some(previous) = previous_provider {
@@ -36,6 +43,34 @@ fn provider(protocol: LLMProtocol, base_url: String) -> LLMProvider {
         chosen_model: Some(0),
         extra_body: None,
     }
+}
+
+#[tokio::test]
+async fn homework_sends_structured_questions_directly_to_the_selected_model() {
+    let protocol = LLMProtocol::OpenAIChatCompletions;
+    let answers = json!([
+        {"index": "406063260", "content": "A", "explanation": ""},
+        {"index": "406063268", "content": "AC", "explanation": ""},
+        {"index": "406063270", "content": "新时代的重大意义。", "explanation": ""}
+    ]);
+    let (url, request) = serve(200, response(&protocol, answers)).await;
+    let input = json!([
+        {"题号": "406063260", "题型": "单选题", "题干": "普通文本题干", "选项": ["A 选项一", "B 选项二"]},
+        {"题号": "406063268", "题型": "多选题", "题干": "多选题干", "选项": ["A 甲", "B 乙", "C 丙"]},
+        {"题号": "406063270", "题型": "简答题", "题干": "简答题干", "选项": []}
+    ]);
+    let questions = serde_json::from_value(input.clone()).unwrap();
+    let result = probe_with(&provider(protocol, url), super::solve_homework(questions))
+        .await
+        .unwrap();
+    assert_eq!(result.len(), 3);
+    assert_eq!(result[0].index, "406063260");
+    assert_eq!(result[2].content, "新时代的重大意义。");
+    let request = request.await.unwrap();
+    assert_eq!(request.body["model"], "probe-model");
+    let sent: Value =
+        serde_json::from_str(request.body["messages"][1]["content"].as_str().unwrap()).unwrap();
+    assert_eq!(sent, input);
 }
 
 #[tokio::test]

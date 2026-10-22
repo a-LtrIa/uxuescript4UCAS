@@ -6,6 +6,7 @@ import { invoke as __TAURI_INVOKE } from "@tauri-apps/api/core";
 export const commands = {
 	/**  用固定简答题检查当前 API 和模型，成功返回 ok，失败返回具体错误字符串。 */
 	healthy: () => __TAURI_INVOKE<string>("healthy"),
+	solveHomework: (questions: Question[]) => __TAURI_INVOKE<AnswerItem_Serialize[]>("solve_homework", { questions }),
 	solveQuiz: (html: string) => __TAURI_INVOKE<AnswerItem_Serialize[]>("solve_quiz", { html }),
 	insertCourseMetaMap: (courseId: string, metadata: CourseMetadata) => __TAURI_INVOKE<void>("insert_course_meta_map", { courseId, metadata }),
 	queryCourseMeta: (courseId: string) => __TAURI_INVOKE<{
@@ -155,6 +156,13 @@ export type OptionsConfig = {
 export type PathsConfig = {
 	dirs?: { [key in string]: string },
 	files?: { [key in string]: string },
+};
+
+export type Question = {
+	"题号": string,
+	"题型": string,
+	"题干": string,
+	"选项": string[],
 };
 
 export type TabProgressPayload = {

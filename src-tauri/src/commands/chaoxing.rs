@@ -53,6 +53,19 @@ pub async fn healthy() -> CommandsResult<String> {
 mod tests;
 
 #[uxs_commands::command(webview = "chaoxing")]
+pub async fn solve_homework(questions: Vec<Question>) -> CommandsResult<Vec<AnswerItem>> {
+    let active_id = CONFIG.llm.active_provider.lock().clone();
+    let provider = CONFIG
+        .llm
+        .providers
+        .lock()
+        .get(&active_id)
+        .cloned()
+        .ok_or_else(|| anyhow::anyhow!("大模型提供商 [{}] 不存在", active_id))?;
+    Ok(llm::solve(&provider, questions).await?)
+}
+
+#[uxs_commands::command(webview = "chaoxing")]
 pub async fn solve_quiz(html: String) -> CommandsResult<Vec<AnswerItem>> {
     match solve(&html).await {
         Ok(answers) => {
