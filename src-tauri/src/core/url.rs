@@ -3,6 +3,7 @@
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Type {
     Course,
+    Work,
     CourseOverview,
     Login,
     MainSpace,
@@ -22,6 +23,7 @@ pub fn classify(url: &tauri::Url) -> Type {
     match sub {
         "i" => Type::MainSpace,
         "mooc1" if url.path().starts_with("/mycourse/") => Type::Course,
+        "mooc1-api" if url.path() == "/mooc-ans/mooc2/work/dowork" => Type::Work,
         "mooc2-ans" => Type::CourseOverview,
         "passport2" if url.path().starts_with("/login") => Type::Login,
         _ => Type::Other,

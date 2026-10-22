@@ -9,6 +9,7 @@ use tauri::{Emitter, Manager};
 pub fn obtain(t: Type) -> Option<&'static str> {
     match t {
         Type::Course => Some(include_str!("../scripts/core.js")),
+        Type::Work => Some(include_str!("../scripts/work.js")),
         Type::Login => Some(include_str!("../scripts/click-auto-login.js")),
         _ => None,
     }
