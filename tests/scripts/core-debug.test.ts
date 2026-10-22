@@ -98,11 +98,10 @@ describe("audio task dispatch", () => {
 
 describe("debug task selection", () => {
   it.each([true, false])(
-    "only repeats blocked chapters in normal mode (debug %s)",
+    "runs the course once without a polling delay (debug %s)",
     async (debugging) => {
       vi.useFakeTimers();
       const scan = vi.fn(async () => {});
-      const blockingCount = vi.fn().mockReturnValueOnce(1).mockReturnValue(0);
       const invoke = vi.fn(async (command: string) =>
         command === "options" ? {} : true,
       );
@@ -115,21 +114,14 @@ describe("debug task selection", () => {
       const api = loadCore(context, {
         preserveFocusState: () => {},
         handleCourse: scan,
-        blockingCount,
         totalChapterList: () => [],
       });
       api.config.debugTaskTypes = debugging ? ["Quiz"] : [];
       const run = api.main();
       await flushPromises();
       expect(scan).toHaveBeenCalledOnce();
-      if (debugging) {
-        await run;
-        expect(blockingCount).not.toHaveBeenCalled();
-      } else {
-        await vi.advanceTimersByTimeAsync(10000);
-        await run;
-        expect(scan).toHaveBeenCalledTimes(2);
-      }
+      await run;
+      expect(vi.getTimerCount()).toBe(0);
       expect(invoke).toHaveBeenCalledWith("send_status", {
         status: { kind: "finish", payload: null },
       });

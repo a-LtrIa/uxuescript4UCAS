@@ -163,7 +163,8 @@
    *   elements: <T extends HTMLElement = HTMLElement>(preAction: (() => void | Promise<void>) | null, selector: string, root: ParentNode, errorMsg?: string | false) => Promise<T[]>,
    *   element: (preAction: (() => void | Promise<void>) | null, selector: string, root: ParentNode, errorMsg?: string | false) => Promise<HTMLElement>,
    *   iframeDoc: (preAction: (() => void | Promise<void>) | null, selector: string, root: ParentNode, errorMsg?: string | false) => Promise<Document>,
-   *   taskPointComplete: (container: HTMLElement) => Promise<boolean>
+   *   taskPointComplete: (container: HTMLElement) => Promise<boolean>,
+   *   unlockedChapters: (blocking: HTMLElement[]) => Promise<HTMLElement[]>
    * }}
    */
   const wait = {
@@ -252,6 +253,41 @@
         );
       }
       return /** @type {Document} */ (doc);
+    },
+
+    /** @type {(blocking: HTMLElement[]) => Promise<HTMLElement[]>} */
+    unlockedChapters: (blocking) => {
+      const check = () => {
+        /** @type {HTMLElement[]} */
+        const unlocked = [];
+        for (const original of blocking.slice()) {
+          // 目录更新可能替换章节节点，按 ID 检查当前 DOM。
+          const node = document.getElementById(original.id);
+          if (!node) continue;
+          const status = chapterNodeStatus(node);
+          if (status !== "Interactive" && status !== "Finished") continue;
+          blocking.splice(blocking.indexOf(original), 1);
+          if (shouldHandleChapter(node)) unlocked.push(node);
+        }
+        return unlocked;
+      };
+      return new Promise((resolve) => {
+        const observer = new MutationObserver(onChange);
+        function onChange() {
+          const unlocked = check();
+          if (unlocked.length || blocking.length === 0) {
+            observer.disconnect();
+            resolve(unlocked);
+          }
+        }
+        observer.observe(document, {
+          subtree: true,
+          childList: true,
+          attributes: true,
+          attributeFilter: ["class", "onclick"],
+        });
+        onChange();
+      });
     },
 
     /** @type {(container: HTMLElement) => Promise<boolean>} */
@@ -401,6 +437,15 @@
     return node.matches(SELECTORS.courseTree.unfinishedSelector)
       ? "Interactive"
       : "Finished";
+  };
+
+  /** @type {(node: HTMLElement) => boolean} */
+  const shouldHandleChapter = (node) => {
+    const status = chapterNodeStatus(node);
+    return (
+      status === "Interactive" ||
+      (config.debugTaskTypes.length > 0 && status === "Finished")
+    );
   };
 
   /** @type {(taskDoc: Document) => "Video" | "Audio" | "PDF" | "Quiz" | "Other"} */
@@ -1227,21 +1272,26 @@
 
   /** @param {HTMLElement[]} chapterList */
   const handleCourse = async (chapterList) => {
-    for (const [index, node] of chapterList.entries()) {
-      await emit.chapterProgress(index, node, chapterList);
-      if (
-        chapterNodeStatus(node) !== "Interactive" &&
-        config.debugTaskTypes.length === 0
-      ) {
-        continue;
+    const pending = chapterList.filter(shouldHandleChapter);
+    const blocking = chapterList.filter(
+      (node) => chapterNodeStatus(node) === "Blocking",
+    );
+
+    for (const [index, original] of pending.entries()) {
+      const node = await wait.element(null, `#${original.id}`, document);
+      await emit.chapterProgress(index, node, totalChapterList());
+      if (shouldHandleChapter(node)) {
+        await safeRun(
+          () => handleChapter(node),
+          "章节处理失败，自动跳过该章节",
+        );
       }
-      await safeRun(() => handleChapter(node), "章节处理失败，自动跳过该章节");
+      if (index === pending.length - 1 && blocking.length > 0) {
+        console.info("等待锁定章节解锁");
+        pending.push(...(await wait.unlockedChapters(blocking)));
+      }
     }
   };
-
-  /** @param {HTMLElement[]} chapterList */
-  const blockingCount = (chapterList) =>
-    chapterList.filter((node) => chapterNodeStatus(node) === "Blocking").length;
 
   const totalChapterList = () => {
     return chapterNodes(document).filter((node) => {
@@ -1283,17 +1333,9 @@
       return;
     }
     preserveFocusState();
+
     await emit.started();
-
-    do {
-      await safeRun(() => handleCourse(totalChapterList()), "课程处理失败");
-      if (config.debugTaskTypes.length === 0) await sleep(5000);
-      // debug 只扫描一轮，其他类型的任务未处理时，章节可能一直保持 Blocking。
-    } while (
-      config.debugTaskTypes.length === 0 &&
-      blockingCount(totalChapterList()) > 0
-    );
-
+    await safeRun(() => handleCourse(totalChapterList()), "课程处理失败");
     await emit.finished();
   };
 

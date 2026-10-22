@@ -13,7 +13,7 @@ interface Overrides {
   handleQuiz: TaskHandler;
   preserveFocusState(): void;
   handleCourse(chapters: HTMLElement[]): Promise<void>;
-  blockingCount(chapters: HTMLElement[]): number;
+  handleChapter(node: HTMLElement): Promise<void>;
   totalChapterList(): HTMLElement[];
 }
 
@@ -30,6 +30,7 @@ interface Context {
   Math?: Pick<Math, "random" | "floor">;
   URL?: typeof URL;
   fetch?: typeof fetch;
+  MutationObserver?: typeof MutationObserver;
 }
 
 // The standalone script intentionally exports no module API; describe its test boundary here.
@@ -69,6 +70,7 @@ interface CoreApi {
     ): Promise<Document>;
   };
   handleTab(chapter: Document): Promise<void>;
+  handleCourse(chapters: HTMLElement[]): Promise<void>;
   handleQuiz: TaskHandler;
   handleAudio: TaskHandler;
   sleep(ms: number, fluctuationPercent?: number): Promise<void>;
@@ -100,7 +102,7 @@ export function loadCore(
     entry,
     `
     ${assignments.join("\n")}
-    return { config, wait, handleTab, handleQuiz, handleAudio, sleep, switchingCooldown, resolveInteractiveQuizAnswer, main };
+    return { config, wait, handleTab, handleCourse, handleQuiz, handleAudio, sleep, switchingCooldown, resolveInteractiveQuizAnswer, main };
   `,
   );
   const sandbox = {
