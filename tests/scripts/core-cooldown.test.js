@@ -1,33 +1,34 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { loadCore } from "../support/core";
-
-function setup(cd: number | null = null, random = 0.5) {
-  const fetch = vi.fn<typeof globalThis.fetch>();
-  const setTimeout = vi.fn<Window["setTimeout"]>(
-    window.setTimeout.bind(window),
-  );
-  const context = {
-    window: { confirm: vi.fn(), setTimeout },
-    Math: { random: () => random, floor: Math.floor },
-    URL,
+import { sleep } from "@injected/utils/async.js";
+import { resolveInteractiveQuizAnswer } from "@injected/chaoxing/course/chapter/tasks/interactive.js";
+import { config, cooldown } from "@injected/chaoxing/runtime.js";
+/** @param {number | null} cd */
+function setup(cd = null, random = 0.5) {
+  const fetch = vi.fn();
+  vi.stubGlobal("fetch", fetch);
+  vi.spyOn(Math, "random").mockReturnValue(random);
+  const setTimeout = vi.spyOn(window, "setTimeout");
+  config.switchingCd = cd;
+  return {
+    sleep,
+    cooldown,
+    resolveInteractiveQuizAnswer,
     fetch,
+    setTimeout,
   };
-  const api = loadCore(context);
-  api.config.switchingCd = cd;
-  return { ...api, fetch, setTimeout };
 }
-
 const quiz = { options: [{ name: "A" }, { name: "B" }, { name: "C" }] };
-
-afterEach(() => vi.useRealTimers());
-
+afterEach(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 describe("course cooldown", () => {
   it("does not schedule a timer when disabled", async () => {
     const api = setup();
-    await api.switchingCooldown();
+    await api.cooldown();
     expect(api.setTimeout).not.toHaveBeenCalled();
   });
-
   it.each([
     [0, 1500],
     [0.5, 2000],
@@ -35,7 +36,7 @@ describe("course cooldown", () => {
   ])("random value %s waits %s milliseconds", async (random, expected) => {
     vi.useFakeTimers();
     const api = setup(2, random);
-    const waiting = api.switchingCooldown();
+    const waiting = api.cooldown();
     expect(api.setTimeout).toHaveBeenCalledWith(expect.any(Function), expected);
     await vi.runAllTimersAsync();
     await waiting;
@@ -44,16 +45,16 @@ describe("course cooldown", () => {
     await vi.runAllTimersAsync();
     await fixed;
   });
-
   it.each([null, 2])(
     "validates serially and stops at the first match (CD %s)",
     async (cd) => {
       vi.useFakeTimers();
       const api = setup(cd);
-      let respond!: (value: Response) => void;
+      /** @type {(response: Response) => void} */
+      let respond;
       api.fetch.mockImplementationOnce(
         () =>
-          new Promise<Response>((resolve) => {
+          new Promise((resolve) => {
             respond = resolve;
           }),
       );
@@ -74,7 +75,6 @@ describe("course cooldown", () => {
       expect(api.setTimeout).toHaveBeenCalledTimes(cd === null ? 0 : 2);
     },
   );
-
   it("reports failure after exhausting candidates", async () => {
     const api = setup();
     api.fetch.mockImplementation(async () => Response.json({ isRight: false }));
@@ -87,7 +87,6 @@ describe("course cooldown", () => {
     ).rejects.toThrow("互动题验证未返回正确答案（候选数：3）");
     expect(api.fetch).toHaveBeenCalledTimes(3);
   });
-
   it("shuffles validation order while retaining every multiple-choice candidate", async () => {
     const api = setup(null, 0);
     const data = { ...quiz, questionType: "多选题" };
@@ -108,7 +107,6 @@ describe("course cooldown", () => {
     expect([...order].sort()).toEqual([...candidates].sort());
     expect(JSON.stringify(data)).toBe(original);
   });
-
   it("stops on a failed request", async () => {
     const api = setup();
     api.fetch.mockResolvedValue(new Response(null, { status: 500 }));

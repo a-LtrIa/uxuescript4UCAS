@@ -1,23 +1,33 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { loadCore } from "../support/core";
-
-afterEach(() => vi.useRealTimers());
-
-function setup(options: { duration?: number } = {}) {
+import { config } from "@injected/chaoxing/runtime.js";
+import { handleAudio } from "@injected/chaoxing/course/chapter/tasks/audio.js";
+afterEach(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
+/** @param {{duration?: number}} options */
+function setup(options = {}) {
   vi.useFakeTimers();
   const error = vi.fn();
-  const api = loadCore({ console: { info: vi.fn(), error } });
+  Object.assign(config, {
+    muteVideo: true,
+    lockSpeed: null,
+    debugTaskTypes: [],
+  });
   const doc = document.implementation.createHTMLDocument();
   doc.body.innerHTML = `
     <div id="audio"><audio class="vjs-tech"></audio>
       <button class="vjs-play-control">播放</button>
     </div>
     <audio id="audio1_html5_white"></audio>`;
-  const audio = doc.querySelector("#audio audio") as HTMLAudioElement;
+  const audio = /** @type {HTMLAudioElement} */ (
+    doc.querySelector("#audio audio")
+  );
   let paused = true;
   let currentTime = 0;
   let duration = options.duration ?? 107;
-  const seek = vi.fn((value: number) => {
+  const seek = vi.fn((value) => {
     currentTime = value;
   });
   Object.defineProperties(audio, {
@@ -25,36 +35,47 @@ function setup(options: { duration?: number } = {}) {
     currentTime: { get: () => currentTime, set: seek },
     duration: { get: () => duration },
   });
-  const click = vi.spyOn(doc.querySelector("button")!, "click")
+  const click = vi
+    .spyOn(doc.querySelector("button"), "click")
     .mockImplementation(() => {
       paused = !paused;
       // 播放先切换状态，下一轮媒体时间才开始推进。
-      window.setTimeout(() => { currentTime = 1; }, 500);
+      window.setTimeout(() => {
+        currentTime = 1;
+      }, 500);
     });
   return {
-    api, doc, audio, seek, click, error,
-    setDuration: (value: number) => { duration = value; },
+    config,
+    doc,
+    audio,
+    seek,
+    click,
+    error,
+    setDuration: /** @param {number} value */ (value) => {
+      duration = value;
+    },
   };
 }
-
 describe("standalone audio playback", () => {
   it("starts once, applies mute and speed, then seeks near the end", async () => {
     const page = setup();
-    page.api.config.lockSpeed = 2;
-    const run = page.api.handleAudio(page.doc);
+    page.config.lockSpeed = 2;
+    const run = handleAudio(page.doc);
     await vi.advanceTimersByTimeAsync(1000);
     await run;
     expect(page.click).toHaveBeenCalledOnce();
     expect(page.audio.muted).toBe(true);
     expect(page.audio.playbackRate).toBe(2);
     expect(page.seek).toHaveBeenCalledExactlyOnceWith(106);
-    expect((page.doc.querySelector("#audio1_html5_white") as HTMLAudioElement).muted)
-      .toBe(false);
+    expect(
+      /** @type {HTMLAudioElement} */ (
+        page.doc.querySelector("#audio1_html5_white")
+      ).muted,
+    ).toBe(false);
   });
-
   it("waits for media duration after playback starts", async () => {
     const page = setup({ duration: NaN });
-    const run = page.api.handleAudio(page.doc);
+    const run = handleAudio(page.doc);
     await vi.advanceTimersByTimeAsync(1000);
     expect(page.seek).not.toHaveBeenCalled();
     page.setDuration(406);
@@ -62,19 +83,17 @@ describe("standalone audio playback", () => {
     await run;
     expect(page.seek).toHaveBeenCalledExactlyOnceWith(405);
   });
-
   it("reports duration timeout through the existing error path", async () => {
     const page = setup({ duration: Infinity });
-    const run = page.api.handleAudio(page.doc);
+    const run = handleAudio(page.doc);
     const result = expect(run).rejects.toThrow("等待音频时长超时");
     await vi.advanceTimersByTimeAsync(6000);
     await result;
     expect(page.seek).not.toHaveBeenCalled();
   });
-
   it("does not seek before zero for subsecond audio", async () => {
     const page = setup({ duration: 0.5 });
-    const run = page.api.handleAudio(page.doc);
+    const run = handleAudio(page.doc);
     await vi.advanceTimersByTimeAsync(1000);
     await run;
     expect(page.seek).toHaveBeenCalledExactlyOnceWith(0);

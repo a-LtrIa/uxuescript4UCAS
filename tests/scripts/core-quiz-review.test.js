@@ -1,50 +1,48 @@
 import { flushPromises } from "@vue/test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { loadCore } from "../support/core";
-
-async function setup(
-  enabled: boolean,
-  confirm: (message?: string) => boolean | Promise<boolean>,
-) {
+import { handleQuiz } from "@injected/chaoxing/course/chapter/tasks/quiz.js";
+import { config } from "@injected/chaoxing/runtime.js";
+import { wait } from "@injected/utils/async.js";
+import * as backend from "@injected/utils/backend.js";
+const { invokeMock } = vi.hoisted(() => ({
+  invokeMock: vi.fn(),
+}));
+vi.mock("@injected/utils/backend.js", () => ({
+  invoke: invokeMock,
+  confirm: vi.fn(),
+}));
+/**
+ * @param {boolean} enabled
+ * @param {(message: string) => boolean | Promise<boolean>} confirm
+ */
+async function setup(enabled, confirm) {
   const submit = vi.fn();
-  const setTimeout = vi.fn<Window["setTimeout"]>(
-    window.setTimeout.bind(window),
-  );
-  const invoke = vi.fn(
-    async (command: string, args?: Record<string, unknown>) => {
-      if (command === "options") return { quizReview: enabled };
-      if (command === "solve_quiz") return [];
-      if (command === "confirm")
-        return confirm(
-          typeof args?.message === "string" ? args.message : undefined,
-        );
-    },
-  );
-  const context = {
-    window: { __TAURI_INTERNALS__: { invoke }, setTimeout },
-    document,
-  };
-  const { config, wait, handleQuiz } = loadCore(context);
-  await config.loadFromBackend();
-  config.debugTaskTypes = [];
+  const setTimeout = vi.spyOn(window, "setTimeout");
+  const invoke = invokeMock.mockReset().mockResolvedValue([]);
+  vi.mocked(backend.confirm).mockImplementation(confirm);
+  Object.assign(config, {
+    quizReview: enabled,
+    debugTaskTypes: [],
+    switchingCd: null,
+  });
   const quizDoc = document.implementation.createHTMLDocument();
   quizDoc.body.innerHTML =
     '<button id="submit"></button><div id="modal"><button id="ok"></button></div>';
-  const submitButton = quizDoc.getElementById("submit")!;
+  const submitButton = quizDoc.getElementById("submit");
   submitButton.addEventListener("click", submit);
-  wait.iframeDoc = vi.fn(async () => quizDoc);
-  wait.elements = vi.fn(async () => []);
-  wait.element = vi.fn(async (_action, selector) => {
+  vi.spyOn(wait, "iframeDoc").mockResolvedValue(quizDoc);
+  vi.spyOn(wait, "elements").mockResolvedValue([]);
+  vi.spyOn(wait, "element").mockImplementation(async (_action, selector) => {
     const id =
       selector === "a.btnSubmit"
         ? "submit"
         : selector === "#workpop"
           ? "modal"
           : "ok";
-    return quizDoc.getElementById(id)!;
+    return quizDoc.getElementById(id);
   });
   // Submission is already covered above; this scenario skips polling the page-owned modal.
-  wait.until = async () => null;
+  vi.spyOn(wait, "until").mockResolvedValue(null);
   return {
     run: () => handleQuiz(quizDoc),
     submit,
@@ -53,9 +51,11 @@ async function setup(
     invoke,
   };
 }
-
-afterEach(() => vi.useRealTimers());
-
+afterEach(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 describe("manual quiz review", () => {
   it("submits without prompting or waiting when disabled", async () => {
     const page = await setup(
@@ -67,14 +67,14 @@ describe("manual quiz review", () => {
     expect(page.setTimeout).not.toHaveBeenCalled();
     expect(page.submit).toHaveBeenCalledOnce();
   });
-
   it("waits for Yes before submitting and explains both choices and how to stop", async () => {
-    let choose!: (value: boolean) => void;
+    /** @type {(value: boolean) => void} */
+    let choose;
     const page = await setup(
       true,
       vi.fn(
         () =>
-          new Promise<boolean>((resolve) => {
+          new Promise((resolve) => {
             choose = resolve;
           }),
       ),
@@ -94,11 +94,10 @@ describe("manual quiz review", () => {
     expect(page.submit).toHaveBeenCalledOnce();
     expect(page.setTimeout).not.toHaveBeenCalled();
   });
-
   it("allows repeated 30-second reviews without submitting until Yes", async () => {
     vi.useFakeTimers();
     const confirm = vi
-      .fn<(message?: string) => Promise<boolean>>()
+      .fn()
       .mockResolvedValueOnce(false)
       .mockResolvedValueOnce(false)
       .mockResolvedValue(true);

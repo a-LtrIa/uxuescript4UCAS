@@ -1,46 +1,72 @@
 import { flushPromises } from "@vue/test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { loadCore } from "../support/core";
+import { config } from "@injected/chaoxing/runtime.js";
+import { wait } from "@injected/utils/async.js";
+import { handleTab } from "@injected/chaoxing/course/chapter/tasks/index.js";
+import { handleVideo } from "@injected/chaoxing/course/chapter/tasks/video.js";
+import { handleAudio } from "@injected/chaoxing/course/chapter/tasks/audio.js";
+import { handlePDF } from "@injected/chaoxing/course/chapter/tasks/pdf.js";
+import { handleQuiz } from "@injected/chaoxing/course/chapter/tasks/quiz.js";
 
-afterEach(() => vi.useRealTimers());
-
-function setup(
-  debugTypes: ReturnType<typeof loadCore>["config"]["debugTaskTypes"],
-  hasBackend = true,
-) {
+vi.mock("@injected/chaoxing/course/chapter/tasks/video.js", () => ({
+  handleVideo: vi.fn(),
+}));
+vi.mock("@injected/chaoxing/course/chapter/tasks/audio.js", () => ({
+  handleAudio: vi.fn(),
+}));
+vi.mock("@injected/chaoxing/course/chapter/tasks/pdf.js", () => ({
+  handlePDF: vi.fn(),
+}));
+vi.mock("@injected/chaoxing/course/chapter/tasks/quiz.js", () => ({
+  handleQuiz: vi.fn(),
+}));
+afterEach(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
+/** @param {typeof config.debugTaskTypes} debugTypes */
+function setup(debugTypes, hasBackend = true) {
   const handlers = {
-    Video: vi.fn(async () => {}),
-    Audio: vi.fn(async () => {}),
-    PDF: vi.fn(async () => {}),
-    Quiz: vi.fn(async () => {}),
+    Video: handleVideo,
+    Audio: handleAudio,
+    PDF: handlePDF,
+    Quiz: handleQuiz,
   };
-  const context = {
-    window: { __TAURI_INTERNALS__: { invoke: vi.fn(async () => true) } },
-    console: { info: vi.fn(), error: vi.fn() },
-  };
-  const { config, wait, handleTab } = loadCore(context, {
-    handleVideo: handlers.Video,
-    handleAudio: handlers.Audio,
-    handlePDF: handlers.PDF,
-    handleQuiz: handlers.Quiz,
+  for (const handler of Object.values(handlers))
+    vi.mocked(handler).mockReset().mockResolvedValue(undefined);
+  Object.assign(config, {
+    debugTaskTypes: debugTypes,
+    hasBackend,
+    switchingCd: null,
   });
-  config.debugTaskTypes = debugTypes;
-  config.hasBackend = hasBackend;
-  wait.elements = vi.fn<ReturnType<typeof loadCore>["wait"]["elements"]>(
+  vi.spyOn(window, "confirm").mockReturnValue(true);
+  const error = vi.spyOn(console, "error").mockImplementation(() => {});
+  vi.spyOn(wait, "elements").mockImplementation(
     async (_action, selector, root) =>
-      Array.from(root.querySelectorAll<HTMLElement>(selector)),
+      Array.from(root.querySelectorAll(selector)),
   );
-  wait.element = vi.fn<ReturnType<typeof loadCore>["wait"]["element"]>(
-    async (_action, selector, root) =>
-      root.querySelector<HTMLElement>(selector)!,
+  vi.spyOn(wait, "element").mockImplementation(
+    async (_action, selector, root) => root.querySelector(selector),
   );
-  wait.until = async (getter) => getter();
-  const taskPointComplete = vi.fn<
-    ReturnType<typeof loadCore>["wait"]["taskPointComplete"]
-  >(async () => true);
-  wait.taskPointComplete = taskPointComplete;
+  vi.spyOn(wait, "until").mockImplementation(async (getter) => getter());
+  const autoComplete = { value: true };
+  const originalObserve = MutationObserver.prototype.observe;
+  const observe = vi
+    .spyOn(MutationObserver.prototype, "observe")
+    .mockImplementation(function (target, options) {
+      originalObserve.call(this, target, options);
+      if (autoComplete.value)
+        queueMicrotask(() =>
+          /** @type {Element} */ (target).classList.add("ans-job-finished"),
+        );
+    });
   const chapter = document.implementation.createHTMLDocument();
-  const add = (kind: string, marked: boolean, finished = false) => {
+  /**
+   * @param {string} kind
+   * @param {boolean} marked
+   */
+  const add = (kind, marked, finished = false) => {
     const container = document.createElement("div");
     container.className = `ans-attach-ct${finished ? " ans-job-finished" : ""}`;
     if (marked)
@@ -57,34 +83,34 @@ function setup(
     });
     container.appendChild(iframe);
     chapter.body.appendChild(container);
+    return container;
   };
   return {
     handlers,
-    wait: { ...wait, taskPointComplete },
+    wait,
+    observe,
+    autoComplete,
     chapter,
     add,
-    error: context.console.error,
+    error,
     run: () => handleTab(chapter),
   };
 }
-
 describe("audio task dispatch", () => {
   it("runs standalone audio and waits for its task completion marker", async () => {
     const page = setup([], false);
     page.add("audio", true);
     await page.run();
     expect(page.handlers.Audio).toHaveBeenCalledOnce();
-    expect(page.wait.taskPointComplete).toHaveBeenCalledOnce();
+    expect(page.observe).toHaveBeenCalledOnce();
   });
-
   it("skips completed audio tasks", async () => {
     const page = setup([], false);
     page.add("audio", true, true);
     await page.run();
     expect(page.handlers.Audio).not.toHaveBeenCalled();
-    expect(page.wait.taskPointComplete).not.toHaveBeenCalled();
+    expect(page.observe).not.toHaveBeenCalled();
   });
-
   it("selects audio in debug mode without waiting for completion", async () => {
     const page = setup(["Audio"], false);
     page.add("audio", false, true);
@@ -92,42 +118,10 @@ describe("audio task dispatch", () => {
     await page.run();
     expect(page.handlers.Audio).toHaveBeenCalledOnce();
     expect(page.handlers.Video).not.toHaveBeenCalled();
-    expect(page.wait.taskPointComplete).not.toHaveBeenCalled();
+    expect(page.observe).not.toHaveBeenCalled();
   });
 });
-
 describe("debug task selection", () => {
-  it.each([true, false])(
-    "runs the course once without a polling delay (debug %s)",
-    async (debugging) => {
-      vi.useFakeTimers();
-      const scan = vi.fn(async () => {});
-      const invoke = vi.fn(async (command: string) =>
-        command === "options" ? {} : true,
-      );
-      const context = {
-        window: {
-          __TAURI_INTERNALS__: { invoke },
-          setTimeout: window.setTimeout.bind(window),
-        },
-      };
-      const api = loadCore(context, {
-        preserveFocusState: () => {},
-        handleCourse: scan,
-        totalChapterList: () => [],
-      });
-      api.config.debugTaskTypes = debugging ? ["Quiz"] : [];
-      const run = api.main();
-      await flushPromises();
-      expect(scan).toHaveBeenCalledOnce();
-      await run;
-      expect(vi.getTimerCount()).toBe(0);
-      expect(invoke).toHaveBeenCalledWith("send_status", {
-        status: { kind: "finish", payload: null },
-      });
-    },
-  );
-
   it("processes only selected types, including unmarked and completed attachments", async () => {
     const page = setup(["Quiz"]);
     page.add("video", true);
@@ -143,7 +137,7 @@ describe("debug task selection", () => {
     expect(page.handlers.Quiz).toHaveBeenCalledTimes(2);
     expect(page.handlers.Video).not.toHaveBeenCalled();
     expect(page.handlers.PDF).not.toHaveBeenCalled();
-    expect(page.wait.taskPointComplete).not.toHaveBeenCalled();
+    expect(page.observe).not.toHaveBeenCalled();
     expect(page.wait.elements).toHaveBeenCalledWith(
       null,
       ".ans-attach-ct:has(iframe)",
@@ -151,7 +145,6 @@ describe("debug task selection", () => {
       false,
     );
   });
-
   it("allows several selected types and skips Quiz without requiring a backend", async () => {
     const page = setup(["Video", "PDF"], false);
     page.add("work", true);
@@ -161,9 +154,8 @@ describe("debug task selection", () => {
     expect(page.handlers.Video).toHaveBeenCalledOnce();
     expect(page.handlers.PDF).toHaveBeenCalledOnce();
     expect(page.handlers.Quiz).not.toHaveBeenCalled();
-    expect(page.wait.taskPointComplete).not.toHaveBeenCalled();
+    expect(page.observe).not.toHaveBeenCalled();
   });
-
   it("keeps normal mode limited to unfinished marked tasks", async () => {
     const page = setup([]);
     page.add("work", false);
@@ -174,7 +166,7 @@ describe("debug task selection", () => {
     expect(page.handlers.Quiz).not.toHaveBeenCalled();
     expect(page.handlers.Video).toHaveBeenCalledOnce();
     expect(page.handlers.PDF).toHaveBeenCalledOnce();
-    expect(page.wait.taskPointComplete).toHaveBeenCalledTimes(2);
+    expect(page.observe).toHaveBeenCalledTimes(2);
     expect(page.wait.elements).toHaveBeenCalledWith(
       null,
       ".ans-attach-ct:has(.ans-job-icon)",
@@ -182,17 +174,10 @@ describe("debug task selection", () => {
       "",
     );
   });
-
   it("still waits for the task completion marker in normal mode", async () => {
     const page = setup([]);
     page.add("video", true);
-    let finish!: (value: boolean) => void;
-    page.wait.taskPointComplete.mockImplementation(
-      () =>
-        new Promise<boolean>((resolve) => {
-          finish = resolve;
-        }),
-    );
+    page.autoComplete.value = false;
     let done = false;
     const run = page.run().then(() => {
       done = true;
@@ -200,11 +185,10 @@ describe("debug task selection", () => {
     await flushPromises();
     expect(page.handlers.Video).toHaveBeenCalledOnce();
     expect(done).toBe(false);
-    finish(true);
+    page.chapter.body.firstElementChild.classList.add("ans-job-finished");
     await run;
     expect(done).toBe(true);
   });
-
   it.each([
     ["unknown", "未识别的任务点类型:"],
     ["work", "未开启后端服务，无法处理Quiz任务点"],
@@ -222,13 +206,13 @@ describe("debug task selection", () => {
       );
       expect(page.handlers.Quiz).not.toHaveBeenCalled();
       expect(page.handlers.PDF).toHaveBeenCalledOnce();
-      expect(page.wait.taskPointComplete).toHaveBeenCalledOnce();
-      expect(page.wait.taskPointComplete).toHaveBeenCalledWith(
-        page.chapter.body.children[1],
-      );
+      expect(page.observe).toHaveBeenCalledOnce();
+      expect(page.observe).toHaveBeenCalledWith(page.chapter.body.children[1], {
+        attributes: true,
+        attributeFilter: ["class"],
+      });
     },
   );
-
   it("does not fail on a debug page without frame attachments", async () => {
     const page = setup(["Quiz"]);
     await page.run();

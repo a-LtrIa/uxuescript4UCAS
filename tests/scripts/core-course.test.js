@@ -1,9 +1,22 @@
 import { flushPromises } from "@vue/test-utils";
-import { describe, expect, it, vi } from "vitest";
-import { loadCore } from "../support/core";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { handleCourse } from "@injected/chaoxing/course/chapters.js";
+import { handleChapter } from "@injected/chaoxing/course/chapter/index.js";
+import { config } from "@injected/chaoxing/runtime.js";
+import { emit } from "@injected/chaoxing/course/runtime.js";
 
-function setup(states: ("pending" | "blocking" | "finished")[]) {
-  const doc = document.implementation.createHTMLDocument();
+vi.mock("@injected/chaoxing/course/chapter/index.js", () => ({
+  handleChapter: vi.fn(),
+}));
+afterEach(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
+/** @param {string[]} states */
+function setup(states) {
+  const doc = document;
+  doc.body.innerHTML = "";
   const chapters = states.map((state, index) => {
     const node = doc.createElement("div");
     node.id = `cur${index}`;
@@ -11,26 +24,27 @@ function setup(states: ("pending" | "blocking" | "finished")[]) {
     node.innerHTML = `<span class="posCatalog_name">Chapter ${index}</span>`;
     if (state !== "finished")
       node.appendChild(doc.createElement("i")).className = "orangeNew";
-    if (state !== "blocking")
-      node.querySelector<HTMLElement>("span")!.onclick = () => {};
+    if (state !== "blocking") node.querySelector("span").onclick = () => {};
     doc.body.appendChild(node);
     return node;
   });
-  const handleChapter = vi.fn(async (_node: HTMLElement) => {});
+  vi.mocked(handleChapter).mockReset().mockResolvedValue(undefined);
   const disconnect = vi.fn();
   class Observer extends MutationObserver {
-    override disconnect() {
+    disconnect() {
       disconnect();
       super.disconnect();
     }
   }
-  const api = loadCore(
-    { document: doc, MutationObserver: Observer },
-    { handleChapter },
-  );
-  const unlock = (index: number, finished = false) => {
-    const node = doc.getElementById(chapters[index].id)!;
-    const title = node.querySelector<HTMLElement>("span")!;
+  vi.stubGlobal("MutationObserver", Observer);
+  config.debugTaskTypes = [];
+  const progress = vi
+    .spyOn(emit, "chapterProgress")
+    .mockResolvedValue(undefined);
+  /** @param {number} index */
+  const unlock = (index, finished = false) => {
+    const node = doc.getElementById(chapters[index].id);
+    const title = node.querySelector("span");
     title.setAttribute("onclick", "getTeacherAjax()");
     title.onclick = () => {};
     if (finished) node.querySelector(".orangeNew")?.remove();
@@ -39,14 +53,14 @@ function setup(states: ("pending" | "blocking" | "finished")[]) {
   return {
     doc,
     chapters,
-    api,
-    handleChapter,
+    config,
+    handleChapter: vi.mocked(handleChapter),
     disconnect,
+    progress,
     unlock,
-    run: () => api.handleCourse(chapters),
+    run: () => handleCourse(chapters),
   };
 }
-
 describe("course chapter queue", () => {
   it("processes available chapters before appending an unlocked chapter", async () => {
     const page = setup(["pending", "blocking", "pending"]);
@@ -70,13 +84,13 @@ describe("course chapter queue", () => {
     expect(page.handleChapter).toHaveBeenLastCalledWith(unlocked);
     expect(page.disconnect).toHaveBeenCalledOnce();
   });
-
   it("queues simultaneous unlocks once, in directory order, while a chapter is running", async () => {
     const page = setup(["pending", "blocking", "blocking", "pending"]);
-    let finish!: () => void;
+    /** @type {() => void} */
+    let finish;
     page.handleChapter.mockImplementationOnce(
       () =>
-        new Promise<void>((resolve) => {
+        new Promise((resolve) => {
           finish = resolve;
         }),
     );
@@ -96,66 +110,46 @@ describe("course chapter queue", () => {
       "cur2",
     ]);
   });
-
   it("finds an unlocked chapter after its DOM node is replaced", async () => {
     const page = setup(["pending", "blocking"]);
     const run = page.run();
     await flushPromises();
-    const replacement = page.chapters[1].cloneNode(true) as HTMLElement;
+    const replacement = page.chapters[1].cloneNode(true);
     page.chapters[1].replaceWith(replacement);
     page.unlock(1);
     await run;
     expect(page.handleChapter).toHaveBeenCalledTimes(2);
     expect(page.handleChapter).toHaveBeenLastCalledWith(replacement);
   });
-
   it("finishes when the last blocked chapter unlocks already completed", async () => {
     const page = setup(["pending", "blocking"]);
     const run = page.run();
     await flushPromises();
     page.unlock(1, true);
     await run;
-    expect(page.handleChapter).toHaveBeenCalledExactlyOnceWith(page.chapters[0]);
+    expect(page.handleChapter).toHaveBeenCalledExactlyOnceWith(
+      page.chapters[0],
+    );
     expect(page.disconnect).toHaveBeenCalledOnce();
   });
-
   it("handles a chapter unlocked before course processing starts", async () => {
     const page = setup(["blocking"]);
     page.unlock(0);
     await page.run();
     expect(page.handleChapter).toHaveBeenCalledOnce();
   });
-
   it("reports progress in processing order as unlocked chapters are appended", async () => {
     const page = setup(["pending", "blocking", "pending"]);
-    const invoke = vi.fn(async () => null);
-    const api = loadCore(
-      {
-        document: page.doc,
-        MutationObserver,
-        window: { __TAURI_INTERNALS__: { invoke } },
-      },
-      { handleChapter: page.handleChapter },
-    );
-    const run = api.handleCourse(page.chapters);
+    const run = page.run();
     await flushPromises();
     page.unlock(1);
     await run;
-    const indices = invoke.mock.calls.map(
-      (call) =>
-        (
-          call as unknown as [
-            string,
-            { status: { payload: { index: number } } },
-          ]
-        )[1].status.payload.index,
-    );
+    const indices = page.progress.mock.calls.map(([index]) => index);
     expect(indices).toEqual([0, 1, 2]);
   });
-
   it("includes completed chapters in debug mode but still waits for locked chapters", async () => {
     const page = setup(["pending", "blocking", "finished"]);
-    page.api.config.debugTaskTypes = ["Video"];
+    page.config.debugTaskTypes = ["Video"];
     const run = page.run();
     await flushPromises();
     expect(page.handleChapter.mock.calls.map(([node]) => node.id)).toEqual([
