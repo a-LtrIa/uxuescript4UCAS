@@ -7,7 +7,11 @@ use tauri::{Emitter, Manager};
 
 macro_rules! include_script {
     ($name:literal) => {
-        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../dist/scripts/", $name))
+        include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../dist/scripts/embedded/",
+            $name
+        ))
     };
 }
 

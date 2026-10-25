@@ -11,17 +11,30 @@ it("packages the bundled core and a versioned, self-contained userscript", () =>
     execFileSync(process.execPath, ["scripts/build-scripts.mjs", output]);
     const config = JSON.parse(readFileSync("config/build.json", "utf8"));
     const source = readFileSync("dist/scripts/core.js");
-    const entries = Object.keys(JSON.parse(readFileSync("injected/entries.json", "utf8")))
-      .map((name) => `${name}.js`);
+    const entries = Object.keys(
+      JSON.parse(readFileSync("injected/entries.json", "utf8")),
+    ).map((name) => `${name}.js`);
     expect(readdirSync(output).sort()).toEqual(
-      [...entries, "uxuescript.user.js"].sort(),
+      ["core.js", "embedded", "uxuescript.user.js"].sort(),
     );
+    expect(readdirSync(resolve(output, "embedded")).sort()).toEqual(
+      entries.sort(),
+    );
+    for (const entry of entries) {
+      const embedded = readFileSync(resolve(output, "embedded", entry), "utf8");
+      expect(() => new Script(embedded)).not.toThrow();
+    }
+    const embeddedCore = readFileSync(
+      resolve(output, "embedded/core.js"),
+      "utf8",
+    );
+    expect(Buffer.byteLength(embeddedCore)).toBeLessThan(source.byteLength / 2);
     expect(readFileSync(resolve(output, "core.js"))).toEqual(source);
     const userscript = readFileSync(
       resolve(output, "uxuescript.user.js"),
       "utf8",
     );
-    const [header, body] = userscript.split("// ==/UserScript==\n");
+    const [header, body] = userscript.split("// ==/UserScript==\n\n");
     expect(body).toBe(source.toString("utf8"));
     for (const line of [
       `// @version      ${config.version}`,

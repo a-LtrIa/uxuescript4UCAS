@@ -57,7 +57,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: scripts-release
-          path: dist/scripts/*.js
+          path: |
+            dist/scripts/core.js
+            dist/scripts/uxuescript.user.js
           if-no-files-found: error
 
   windows:

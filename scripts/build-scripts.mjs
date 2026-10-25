@@ -42,17 +42,20 @@ export async function buildScripts({
     const entry = `${name}.js`;
     const virtualEntry = "\0uxs:entry";
     const modulePath = resolve(root, "injected", source).replaceAll("\\", "/");
-    /** @type {Array<{format: "iife", name: string, entryFileNames: string, banner?: string}>} */
+    /** @type {import("vite").Rolldown.OutputOptions[]} */
     const outputs = [
       {
         format: /** @type {const} */ ("iife"),
         name: "uXueScript",
-        entryFileNames: entry,
+        entryFileNames: `embedded/${entry}`,
+        minify: true,
       },
     ];
     if (entry === "core.js") {
+      const readable = { ...outputs[0], entryFileNames: entry, minify: false };
+      outputs.push(readable);
       outputs.push({
-        ...outputs[0],
+        ...readable,
         entryFileNames: "uxuescript.user.js",
         banner: metadata,
       });
@@ -76,6 +79,7 @@ export async function buildScripts({
         {
           name: "readable-injected-scripts",
           async generateBundle(_options, bundle) {
+            if (_options.minify) return;
             for (const chunk of Object.values(bundle)) {
               if (chunk.type !== "chunk") continue;
               chunk.code = await format(chunk.code, {

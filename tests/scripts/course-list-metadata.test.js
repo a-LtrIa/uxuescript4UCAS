@@ -1,7 +1,7 @@
 import { runInNewContext } from "node:vm";
 import { flushPromises } from "@vue/test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import script from "../../dist/scripts/course-list-metadata.js?raw";
+import script from "../../dist/scripts/embedded/course-list-metadata.js?raw";
 const channel = "uxue-course-list-metadata";
 const mainOrigin = "https://i.chaoxing.com";
 const frameOrigin = "https://mooc2-ans.chaoxing.com";
