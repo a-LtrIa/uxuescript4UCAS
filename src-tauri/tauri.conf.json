@@ -6,7 +6,10 @@
     "beforeDevCommand": "pnpm run dev",
     "devUrl": "http://localhost:1425",
     "beforeBuildCommand": "pnpm run build",
-    "frontendDist": "../dist"
+    "frontendDist": "../dist",
+    "additionalWatchFolders": [
+      "../dist/scripts"
+    ]
   },
   "app": {
     "macOSPrivateApi": true,

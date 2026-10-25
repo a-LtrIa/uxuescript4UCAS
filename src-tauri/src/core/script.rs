@@ -5,12 +5,21 @@ use crate::commands::chaoxing::CourseStatus;
 
 use tauri::{Emitter, Manager};
 
+macro_rules! include_script {
+    ($name:literal) => {
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../dist/scripts/", $name))
+    };
+}
+
+pub(crate) use include_script;
+
 /// 根据 URL 类型获取对应的 JavaScript 静态脚本内容。
 pub fn obtain(t: Type) -> Option<&'static str> {
     match t {
-        Type::Course => Some(include_str!("../scripts/core.js")),
-        Type::Work => Some(include_str!("../scripts/work.js")),
-        Type::Login => Some(include_str!("../scripts/click-auto-login.js")),
+        Type::Course => Some(include_script!("core.js")),
+        Type::Work => Some(include_script!("work.js")),
+        Type::Exam => Some(include_script!("exam.js")),
+        Type::Login => Some(include_script!("click-auto-login.js")),
         _ => None,
     }
 }

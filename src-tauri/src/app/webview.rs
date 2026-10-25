@@ -1,6 +1,6 @@
 use super::config::CONFIG;
 use crate::core::{
-    script::load_on,
+    script::{include_script, load_on},
     url::{classify, Type},
 };
 
@@ -85,11 +85,9 @@ pub fn init_on(window: &tauri::Window, label: &str) -> Result<Webview, Box<dyn s
             )
             .background_color((242, 244, 247).into())
             .devtools(true)
-            .initialization_script(include_str!("../scripts/webview-log.js"))
-            .initialization_script_for_all_frames(include_str!("../scripts/iframe-init.js"))
-            .initialization_script_for_all_frames(include_str!(
-                "../scripts/course-list-metadata.js"
-            ))
+            .initialization_script(include_script!("webview-log.js"))
+            .initialization_script_for_all_frames(include_script!("iframe-init.js"))
+            .initialization_script_for_all_frames(include_script!("course-list-metadata.js"))
             .on_navigation(|url| {
                 log::debug!("检测到页面导航: {}", url);
                 classify(url) != Type::Unknown
@@ -102,7 +100,7 @@ pub fn init_on(window: &tauri::Window, label: &str) -> Result<Webview, Box<dyn s
             WebviewBuilder::new(label, WebviewUrl::App("mask.chaoxing.html".into()))
                 .background_color((0, 0, 0, 0).into())
                 .devtools(true)
-                .initialization_script(include_str!("../scripts/webview-log.js")),
+                .initialization_script(include_script!("webview-log.js")),
             LogicalPosition::new(logical_size.width * 0.51, logical_size.height * 0.46),
             LogicalSize::new(logical_size.width * 0.48, logical_size.height * 0.48),
         ),
