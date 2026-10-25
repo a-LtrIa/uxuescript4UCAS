@@ -43,8 +43,8 @@ uXueScript 是基于 **Rust + Tauri 2 + Vue 3** 开发的学习通自动化辅�
 
 ## 功能与特点
 
-- **课程任务自动推进：** 识别章节目录与任务状态，跳过已完成内容，继续处理视频、PDF、音频和课后题目。视频支持静音、倍速设置与互动题处理；PDF 自动滚动阅读页面并等待任务点完成。
-- **AI 辅助答题：** 支持单选、多选、判断、填空和简答题，自动生成参考答案并回填。可开启人工核验，在提交前检查或修改答案。
+- **课程任务自动推进：** 识别章节目录与任务状态，跳过已完成内容，继续处理视频、PDF、音频和课后题目。视频支持静音、倍速、互动题处理与批注“继续学习”自动点击；PDF 自动滚动阅读页面并等待任务点完成。
+- **AI 辅助答题：** 支持章节测验、独立作业与受支持的考试页面，处理单选、多选、判断、填空和简答题，作业和考试还支持连线题。章节测验可开启提交前人工核验；独立作业填写后暂存，考试按页面模式填写或暂存，由用户检查并交卷。
 - **模型自由选择：** 内置多家模型供应商，支持自定义 OpenAI 兼容服务和本地模型。按自己的需求选择服务与模型，无需 AI 答题时可以跳过配置。
 - **现代桌面体验：** 在同一个窗口中查看课程、调整配置和跟踪进度，支持多种配色主题。无需额外安装脚本管理器、Python、Selenium 或浏览器驱动。
 - **后台运行：** 处理页面失焦导致的暂停行为，支持后台运行。
@@ -70,9 +70,9 @@ Windows 用户可选择 MSI 安装包或便携 EXE；macOS Apple Silicon 用户�
 
 ## 独立脚本
 
-[安装油猴脚本](https://github.com/unraous/uxuescript/releases/latest/download/uxuescript.user.js) · [下载 core.js](https://github.com/unraous/uxuescript/releases/latest/download/core.js) · [查看源码](src-tauri/src/scripts/core.js)
+[安装油猴脚本](https://github.com/unraous/uxuescript/releases/latest/download/uxuescript.user.js) · [下载 core.js](https://github.com/unraous/uxuescript/releases/latest/download/core.js) · [查看源码](injected/chaoxing/course.js)
 
-安装油猴脚本后，进入课程学习页面会自动询问是否启动。也可以将 `core.js` 的完整内容复制到课程页面的浏览器控制台执行。两种方式均支持已实现的视频、音频和 PDF 任务，包括可识别的视频内互动题。
+安装油猴脚本后，进入课程学习页面会自动询问是否启动。也可以将 `core.js` 的完整内容复制到课程页面的浏览器控制台执行。两种方式均支持已实现的视频、音频和 PDF 任务，包括可识别的视频内互动题与批注自动继续学习。
 
 独立模式不提供依赖桌面后端的课后测验 AI 答题。操作步骤见[独立脚本说明](docs/backend-free.md)。
 

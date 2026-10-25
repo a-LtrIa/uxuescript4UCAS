@@ -19,7 +19,7 @@ const metadata = `// ==UserScript==
 // @name         uXueScript
 // @namespace    ${homepage}
 // @version      ${config.version}
-// @description  学习通视频、音频与 PDF 课程任务自动处理，支持视频内互动题。
+// @description  学习通视频、音频与 PDF 课程任务自动处理，支持视频内互动题与批注自动继续学习。
 // @author       ${config.app.author}
 // @license      GPL-3.0-only
 // @homepageURL  ${homepage}

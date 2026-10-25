@@ -35,11 +35,18 @@ const openIssues = async () => {
             中选择模型供应商与模型，并填写 API Key。
           </li>
           <li>
-            <strong>打开课程：</strong
-            >在右下角的课程页面登录学习通，打开目标课程。
+            <strong>打开学习页面：</strong
+            >在右下角登录学习通，进入目标课程章节、作业或受支持的考试答题页。
           </li>
           <li><strong>确认启动：</strong>在弹窗中确认启动。</li>
         </ol>
+        <p>
+          视频批注出现时会自动点击“继续学习”，无需配置模型。
+        </p>
+        <p>
+          独立作业填写后暂存，考试按页面模式填写或暂存，请自行检查、保存和提交。
+          不允许整卷预览时，逐题考试需从第一题开始，且允许自由回看；运行时不要手动跳题。
+        </p>
       </section>
       <section aria-labelledby="guide-issues-title">
         <h2 id="guide-issues-title">常见问题</h2>
