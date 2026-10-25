@@ -46,7 +46,7 @@ fn provider(protocol: LLMProtocol, base_url: String) -> LLMProvider {
 }
 
 #[tokio::test]
-async fn homework_sends_structured_questions_directly_to_the_selected_model() {
+async fn sends_question_payload_to_the_selected_model_without_a_font() {
     let protocol = LLMProtocol::OpenAIChatCompletions;
     let answers = json!([
         {"index": "406063260", "content": "A", "explanation": ""},
@@ -55,14 +55,20 @@ async fn homework_sends_structured_questions_directly_to_the_selected_model() {
     ]);
     let (url, request) = serve(200, response(&protocol, answers)).await;
     let input = json!([
-        {"题号": "406063260", "题型": "单选题", "题干": "普通文本题干", "选项": ["A 选项一", "B 选项二"]},
-        {"题号": "406063268", "题型": "多选题", "题干": "多选题干", "选项": ["A 甲", "B 乙", "C 丙"]},
-        {"题号": "406063270", "题型": "简答题", "题干": "简答题干", "选项": []}
+        {"id": "406063260", "kind": "单选题", "stem": "普通文本题干", "options": ["A 选项一", "B 选项二"]},
+        {"id": "406063268", "kind": "多选题", "stem": "多选题干", "options": ["A 甲", "B 乙", "C 丙"]},
+        {"id": "406063270", "kind": "简答题", "stem": "简答题干", "options": []}
     ]);
     let questions = serde_json::from_value(input.clone()).unwrap();
-    let result = probe_with(&provider(protocol, url), super::solve_homework(questions))
-        .await
-        .unwrap();
+    let result = probe_with(
+        &provider(protocol, url),
+        super::solve_questions(QuestionPayload {
+            questions,
+            font: None,
+        }),
+    )
+    .await
+    .unwrap();
     assert_eq!(result.len(), 3);
     assert_eq!(result[0].index, "406063260");
     assert_eq!(result[2].content, "新时代的重大意义。");
@@ -71,6 +77,35 @@ async fn homework_sends_structured_questions_directly_to_the_selected_model() {
     let sent: Value =
         serde_json::from_str(request.body["messages"][1]["content"].as_str().unwrap()).unwrap();
     assert_eq!(sent, input);
+}
+
+#[tokio::test]
+async fn decrypts_question_payload_before_sending_it_to_the_model() {
+    let protocol = LLMProtocol::OpenAIChatCompletions;
+    let questions =
+        serde_json::from_str(include_str!("../../assets/course-page/questions.json")).unwrap();
+    let expected: Vec<Question> =
+        serde_json::from_str(include_str!("../../assets/course-page/decrypted.json")).unwrap();
+    let answers: Vec<_> = (1..=5)
+        .map(|index| {
+            json!({
+                "index": index.to_string(), "content": "A", "explanation": "样本答案"
+            })
+        })
+        .collect();
+    let (url, request) = serve(200, response(&protocol, json!(answers))).await;
+    let payload = QuestionPayload {
+        questions,
+        font: Some(include_bytes!("../../assets/course-page/cxs-font.ttf").to_vec()),
+    };
+    let result = probe_with(&provider(protocol, url), super::solve_questions(payload))
+        .await
+        .unwrap();
+    assert_eq!(result.len(), 5);
+    let request = request.await.unwrap();
+    let sent: Value =
+        serde_json::from_str(request.body["messages"][1]["content"].as_str().unwrap()).unwrap();
+    assert_eq!(sent, serde_json::to_value(expected).unwrap());
 }
 
 #[tokio::test]
@@ -109,7 +144,7 @@ async fn probes_all_protocols_with_the_selected_model_and_fixed_question() {
         };
         let questions: Value = serde_json::from_str(question).unwrap();
         assert_eq!(questions.as_array().unwrap().len(), 1);
-        assert_eq!(questions[0]["题干"], "天空为什么是蓝色的？请用一句话回答。");
+        assert_eq!(questions[0]["stem"], "天空为什么是蓝色的？请用一句话回答。");
     }
 }
 

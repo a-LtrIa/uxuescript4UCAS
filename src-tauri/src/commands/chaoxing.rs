@@ -8,7 +8,7 @@ use super::CommandsResult;
 
 use crate::config::CONFIG;
 use crate::core::quiz::{
-    Question,
+    Question, QuestionPayload,
     llm::{self, AnswerItem},
     solve,
 };
@@ -53,27 +53,14 @@ pub async fn healthy() -> CommandsResult<String> {
 mod tests;
 
 #[uxs_commands::command(webview = "chaoxing")]
-pub async fn solve_homework(questions: Vec<Question>) -> CommandsResult<Vec<AnswerItem>> {
-    let active_id = CONFIG.llm.active_provider.lock().clone();
-    let provider = CONFIG
-        .llm
-        .providers
-        .lock()
-        .get(&active_id)
-        .cloned()
-        .ok_or_else(|| anyhow::anyhow!("大模型提供商 [{}] 不存在", active_id))?;
-    Ok(llm::solve(&provider, questions).await?)
-}
-
-#[uxs_commands::command(webview = "chaoxing")]
-pub async fn solve_quiz(html: String) -> CommandsResult<Vec<AnswerItem>> {
-    match solve(&html).await {
+pub async fn solve_questions(payload: QuestionPayload) -> CommandsResult<Vec<AnswerItem>> {
+    match solve(payload).await {
         Ok(answers) => {
-            log::info!("solve_quiz 答题成功，获得答案数量: {}", answers.len());
+            log::info!("solve_questions 答题成功，获得答案数量: {}", answers.len());
             Ok(answers)
         }
         Err(e) => {
-            log::error!("solve_quiz 答题失败，详细原因: {:?}", e);
+            log::error!("solve_questions 答题失败，详细原因: {:?}", e);
             Err(e.into())
         }
     }

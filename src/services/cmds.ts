@@ -6,8 +6,7 @@ import { invoke as __TAURI_INVOKE } from "@tauri-apps/api/core";
 export const commands = {
 	/**  用固定简答题检查当前 API 和模型，成功返回 ok，失败返回具体错误字符串。 */
 	healthy: () => __TAURI_INVOKE<string>("healthy"),
-	solveHomework: (questions: Question[]) => __TAURI_INVOKE<AnswerItem_Serialize[]>("solve_homework", { questions }),
-	solveQuiz: (html: string) => __TAURI_INVOKE<AnswerItem_Serialize[]>("solve_quiz", { html }),
+	solveQuestions: (payload: QuestionPayload) => __TAURI_INVOKE<AnswerItem[]>("solve_questions", { payload }),
 	insertCourseMetaMap: (courseId: string, metadata: CourseMetadata) => __TAURI_INVOKE<void>("insert_course_meta_map", { courseId, metadata }),
 	queryCourseMeta: (courseId: string) => __TAURI_INVOKE<{
 	title: string,
@@ -78,27 +77,7 @@ export const commands = {
 };
 
 /* Types */
-export type AnswerItem = AnswerItem_Serialize | AnswerItem_Deserialize;
-
-export type AnswerItem_Deserialize = {
-	index: string,
-} | {
-	"题号": string,
-} | {
-	id: string,
-} & {
-	explanation: string,
-} | {
-	"解析": string,
-} & {
-	content: string,
-} | {
-	"答案": string,
-} | {
-	answer: string,
-};
-
-export type AnswerItem_Serialize = {
+export type AnswerItem = {
 	index: string,
 	explanation: string,
 	content: string,
@@ -159,10 +138,17 @@ export type PathsConfig = {
 };
 
 export type Question = {
-	"题号": string,
-	"题型": string,
-	"题干": string,
-	"选项": string[],
+	/**  页面显示题号，不是平台内部题目 ID。 */
+	id: string,
+	kind: string,
+	stem: string,
+	options: string[],
+};
+
+/**  前端采集的题目与可选字体；分页方式和平台内部 ID 不进入求解协议。 */
+export type QuestionPayload = {
+	questions: Question[],
+	font: number[] | null,
 };
 
 export type TabProgressPayload = {

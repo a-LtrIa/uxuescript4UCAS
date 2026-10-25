@@ -2,15 +2,16 @@ use super::*;
 
 #[tokio::test]
 #[ignore = "requires network and BIGMODEL_API_KEY"]
-async fn test_solve_html_integration() {
+async fn test_solve_payload_integration() {
     dotenv::dotenv().ok();
     let api_key =
         std::env::var("BIGMODEL_API_KEY").expect("请在 .env 文件或环境变量中设置 BIGMODEL_API_KEY");
 
-    let compressed = include_bytes!("../../assets/course-page/webpage.html.gz");
-    let html_content = crate::test_support::load_test_html(compressed);
-
-    let payload = HtmlExtractPayload::new(&html_content).expect("Failed to parse HTML questions");
+    let payload = QuestionPayload {
+        questions: serde_json::from_str(include_str!("../../assets/course-page/questions.json"))
+            .unwrap(),
+        font: Some(include_bytes!("../../assets/course-page/cxs-font.ttf").to_vec()),
+    };
     let decrypted = decrypt(payload);
     assert!(!decrypted.is_empty(), "解密后的题目列表不应为空");
 
@@ -36,7 +37,7 @@ async fn test_solve_html_integration() {
             let err_msg = e.to_string();
             if err_msg.contains("429") || err_msg.contains("速率限制") {
                 println!(
-                    "BigModel HTML 集成测试跳过 (触发 API 速率限制 429): {}",
+                    "BigModel 题目集成测试跳过 (触发 API 速率限制 429): {}",
                     err_msg
                 );
             } else {

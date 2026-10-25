@@ -1,6 +1,6 @@
 use super::{AnswerItem, SYSTEM_PROMPT};
 use crate::config::llm::{LLMProtocol, LLMProvider};
-use crate::core::quiz::html::Question;
+use crate::core::quiz::Question;
 
 use anyhow::Result;
 use reqwest::header::{ACCEPT, HeaderMap, HeaderValue};

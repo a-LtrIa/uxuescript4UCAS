@@ -1,5 +1,4 @@
 use super::*;
-use crate::test_support::load_test_html;
 use serde_json::to_value;
 use std::collections::HashMap;
 
@@ -35,7 +34,7 @@ fn test_decrypt_no_font_returns_same_questions() {
     };
 
     let questions = vec![q1.clone(), q2.clone()];
-    let payload = HtmlExtractPayload {
+    let payload = QuestionPayload {
         questions: questions.clone(),
         font: None,
     };
@@ -48,9 +47,11 @@ fn test_decrypt_no_font_returns_same_questions() {
 
 #[test]
 fn decrypts_course_page_to_expected_questions() {
-    let compressed = include_bytes!("../../../assets/course-page/webpage.html.gz");
-    let html = load_test_html(compressed);
-    let raw = HtmlExtractPayload::new(&html).expect("Failed to parse HTML");
+    let raw = QuestionPayload {
+        questions: serde_json::from_str(include_str!("../../../assets/course-page/questions.json"))
+            .unwrap(),
+        font: Some(include_bytes!("../../../assets/course-page/cxs-font.ttf").to_vec()),
+    };
     let decrypted = decrypt(raw);
     let expected: serde_json::Value =
         serde_json::from_str(include_str!("../../../assets/course-page/decrypted.json")).unwrap();

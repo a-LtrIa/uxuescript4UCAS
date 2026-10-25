@@ -2,7 +2,7 @@ mod dispatcher;
 
 pub use dispatcher::solve;
 
-use super::html::Question;
+use super::Question;
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -12,11 +12,8 @@ const SYSTEM_PROMPT: &str = include_str!("./system_prompt.txt");
 
 #[derive(Serialize, Deserialize, Debug, Type)]
 pub struct AnswerItem {
-    #[serde(alias = "题号", alias = "id")]
     pub index: String,
-    #[serde(alias = "解析")]
     pub explanation: String,
-    #[serde(alias = "答案", alias = "answer")]
     pub content: String,
 }
 

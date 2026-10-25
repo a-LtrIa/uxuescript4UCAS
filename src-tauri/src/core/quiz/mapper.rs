@@ -3,8 +3,8 @@ use std::sync::LazyLock;
 
 use ttf_parser::Face;
 
-use super::html::{HtmlExtractPayload, Question};
 use super::typr::{glyph_hash, loca_offsets};
+use super::{Question, QuestionPayload};
 
 static FONT_HASH_TABLE: LazyLock<HashMap<String, u32>> = LazyLock::new(|| {
     let raw: HashMap<String, serde_json::Value> =
@@ -66,7 +66,7 @@ fn map(text: &str, font_map: &HashMap<char, char>) -> String {
         .collect()
 }
 
-pub fn decrypt(payload: HtmlExtractPayload) -> Vec<Question> {
+pub fn decrypt(payload: QuestionPayload) -> Vec<Question> {
     if let Some(font_data) = payload.font {
         log::info!("检测到加密字体，正在使用哈希字典解密...");
         let font_map = font_map(&font_data);
