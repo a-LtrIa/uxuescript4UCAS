@@ -67,11 +67,13 @@ API Key 的日志格式化会脱敏，配置序列化仍保留明文。读取或
 
 脚本报告的 `finish` 表示执行流程结束，不代表后端独立核验了平台全部任务。视频/PDF 处理还会等待页面的任务完成标记，不能把动作执行完毕与任务点完成混为一谈。
 
-入口：[注入调度](../../src-tauri/src/core/script.rs)、[URL 分类](../../src-tauri/src/core/url.rs)、[核心脚本](../../injected/chaoxing/course/index.js)、[元数据采集](../../injected/chaoxing/course-list-metadata.js)。
+入口：[注入调度](../../src-tauri/src/core/script.rs)、[URL 分类](../../src-tauri/src/core/url.rs)、[核心脚本](../../injected/chaoxing/course.js)、[元数据采集](../../injected/chaoxing/course-list-metadata.js)。
 
-独立作业页使用 [work.js](../../injected/chaoxing/work.js)：在超星域名校验后，按 `mooc1-api` 子域和 `/mooc-ans/mooc2/work/dowork` 路径识别并注入。脚本通过开始确认后，从页面提取单选、多选和简答题，填写答案并调用页面原有暂存流程；收到暂存成功回调后显示结束确认，不自动提交。无 Tauri 后端时显示原生确认提示后退出。
+独立作业页使用 [work.js](../../injected/chaoxing/work.js)：在超星域名校验后，按 `mooc1-api` 子域和 `/mooc-ans/mooc2/work/dowork` 路径识别并注入。确认后默认调用共享的 [整页答题流程](../../injected/chaoxing/questions/page.js)，一次提取、求解并按显示题号填写，再调用页面原有暂存流程；收到成功回调后提示自行提交。无 Tauri 后端时提示后退出。
 
-独立考试页使用 [exam.js](../../injected/chaoxing/exam.js)：在超星域名校验后，按 `/exam-ans/exam/test/reVersionTestStartNew` 路径注入。用户确认后，先从第一题按答题卡顺序采集整卷，汇总求解后回到第一题，再按显示题号匹配答案，填写单选、多选、判断、填空、简答和连线题。其他未支持题型保留原答案，结束时列出需人工处理的题号。连线题向模型提供两组文字及显示编号、字母，答案使用 `1:G;2:A` 格式；前端按文字映射当前页面的内部标识，再点击下拉选项，由页面选择事件维护答案。
+独立考试页使用 [exam.js](../../injected/chaoxing/exam.js) 分流：普通题目页优先调用平台 `topreview()` 进入 `/mooc2/exam/preview`，预览页确认后与作业共用整页答题流程；页面明确显示“不允许整卷预览”时，使用 [逐题流程](../../injected/chaoxing/exam/paged.js)。URL 分类支持 `/exam-ans` 和 `/mooc-ans` 下的题目及预览路径。分流参考 [OCS 的 cx.ts](https://github.com/ocsjs/ocsjs/blob/5.0/packages/scripts/src/projects/cx.ts)；预览页完成后提示用户自行检查、保存和交卷，不调用未经确认的整卷暂存接口。无 Tauri 后端时提示后退出。
+
+整页与逐题流程复用题目提取和填写，支持单选、多选、判断、填空、简答、计算和连线题。其他未支持题型保留原答案，结束时列出需人工处理的题号。连线题向模型提供两组文字及显示编号、字母，答案使用 `1:G;2:A` 格式；前端按文字映射当前页面的内部标识，再点击下拉选项，由页面选择事件维护答案。
 
 考试跨页进度通过 `sessionStorage` 按考试及答卷 ID 隔离，存储采集或填写策略、当前题号、题目、答案及首次加载的必要配置。每个页面依次初始化、执行和结束：初始化恢复进度与配置，执行当前题的采集或填写，结束时推进题号；采集末题后等待整卷求解，再切换填写并回到首题。刷新当前题时继续存储的步骤，手动偏离存储题号直接报错，不自动纠正导航。翻页调用页面原有 `getTheQuestionByStart`，保留其暂存及签名导航流程；最后一题调用 `submitForm(true, false, callback)`，收到回调后清理进度并提示人工交卷。失败停止当前流程并报告策略和题号。仅支持可自由回看的普通考试，保留平台倒计时和到时提交行为。
 
@@ -81,7 +83,7 @@ API Key 的日志格式化会脱敏，配置序列化仍保留明文。读取或
 
 题目从 JS 提取、IPC、Rust 到模型输入统一使用 `id / kind / stem / options` 字段；`id` 表示页面显示题号。模型答案使用 `index / explanation / content`，`index` 对应输入的 `id`，不在链路中转换中英文字段。
 
-三个入口统一调用 `solve_questions(payload)`，请求结构为 `QuestionPayload { questions: Vec<Question>, font: Option<Vec<u8>> }`。Rust 有字体时按字形路径还原文字，无字体时直接使用题目列表，再按配置的模型协议分批求解；生产入口不解析整页 HTML。字体映射针对字形，不是整个字体文件的哈希；未匹配字符保留原样。章节测验开启人工核验时，在提交前等待用户确认；独立作业和考试仍仅暂存。
+三个入口统一调用 `solve_questions(payload)`，请求结构为 `QuestionPayload { questions: Vec<Question>, font: Option<Vec<u8>> }`。Rust 有字体时按字形路径还原文字，无字体时直接使用题目列表，再按配置的模型协议分批求解；生产入口不解析整页 HTML。字体映射针对字形，不是整个字体文件的哈希；未匹配字符保留原样。章节测验开启人工核验时，在提交前等待用户确认；独立作业和逐题考试仅暂存，整卷预览考试提示用户自行保存和交卷。
 
 提供商配置是数据，协议分发负责请求与响应处理。后端支持的协议范围与配置界面允许编辑的范围不同，不能由后端类型推断 UI 已提供全部入口。
 

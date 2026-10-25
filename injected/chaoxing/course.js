@@ -1,7 +1,10 @@
 import { config } from "@injected/chaoxing/runtime.js";
-import { emit, safeRun } from "./runtime.js";
+import { emit, safeRun } from "@injected/chaoxing/course/runtime.js";
 import { confirm } from "@injected/utils/backend.js";
-import { totalChapterList, handleCourse } from "./chapters.js";
+import {
+  totalChapterList,
+  handleCourse,
+} from "@injected/chaoxing/course/chapters.js";
 import { preserveFocusState } from "@injected/chaoxing/focus.js";
 
 /**

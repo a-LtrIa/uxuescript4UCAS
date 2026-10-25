@@ -21,7 +21,13 @@ pub fn classify(url: &tauri::Url) -> Type {
     }
 
     let sub = host.split('.').next().unwrap_or_default();
-    if url.path() == "/exam-ans/exam/test/reVersionTestStartNew" {
+    if matches!(
+        url.path(),
+        "/exam-ans/exam/test/reVersionTestStartNew"
+            | "/mooc-ans/exam/test/reVersionTestStartNew"
+            | "/exam-ans/mooc2/exam/preview"
+            | "/mooc-ans/mooc2/exam/preview"
+    ) {
         return Type::Exam;
     }
     match sub {

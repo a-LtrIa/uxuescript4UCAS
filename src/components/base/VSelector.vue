@@ -1,5 +1,5 @@
 <script lang="ts">
-export type { SelectorData, SelectorMethods } from "./VSelector.types";
+export type { SelectorData, SelectorMethods } from "./VSelector/types";
 </script>
 
 <script setup lang="ts">
@@ -14,9 +14,9 @@ import {
 } from "vue";
 import VLabel from "./VLabel.vue";
 import VRollTransition from "./VRollTransition.vue";
-import VSelectorDropdown from "./VSelectorDropdown.vue";
-import VSelectorEditor from "./VSelectorEditor.vue";
-import type { SelectorData, SelectorMethods } from "./VSelector.types";
+import VSelectorDropdown from "./VSelector/Dropdown.vue";
+import VSelectorEditor from "./VSelector/Editor.vue";
+import type { SelectorData, SelectorMethods } from "./VSelector/types";
 import { label } from "@/labels";
 
 const { data, methods } = defineProps<{

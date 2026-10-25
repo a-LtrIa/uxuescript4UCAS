@@ -1,34 +1,42 @@
 /** 超星课程及题目处理使用的 DOM 与 URL 选择器。 */
+const workExam = {
+  form: "#submitForm",
+  question: ".questionLi.singleQuesId",
+  number: ".mark_name",
+  kind: ".colorShallow",
+  title: ".mark_name",
+  titleMeta: ".colorShallow",
+  optionLabel: "span[data]",
+  choice: {
+    options: ".stem_answer .answerBg",
+    text: ".answer_p",
+    single: ".stem_answer span.num_option",
+    multiple: ".stem_answer span.num_option_dx",
+  },
+  clearSelectedClass: ".stem_answer span:is(.check_answer, .check_answer_dx)",
+  textInputs: ".stem_answer textarea, .stem_answer input[type='text']",
+  fontStyles: "style",
+  matching: {
+    groups: [
+      ".stem_answer .line_wid_half.fl .lineCt",
+      ".stem_answer .line_wid_half.fr .lineCt",
+    ],
+    text: ".wid350",
+    row: /** @param {string} value */ (value) =>
+      `.line_answer_ct[index="${value}"]`,
+    option: /** @param {string} value */ (value) =>
+      `.options li[data="${value}"] a`,
+    dropdown: ".selectBox > p",
+  },
+};
+
 export const SELECTORS = {
-  workExam: {
-    form: "#submitForm",
-    question: ".questionLi.singleQuesId",
-    number: ".mark_name",
-    kind: ".colorShallow",
-    title: ".mark_name",
-    titleMeta: ".colorShallow",
-    optionLabel: "span[data]",
-    choice: {
-      options: ".stem_answer .answerBg",
-      text: ".answer_p",
-      single: ".stem_answer span.num_option",
-      multiple: ".stem_answer span.num_option_dx",
-    },
-    clearSelectedClass: ".stem_answer span:is(.check_answer, .check_answer_dx)",
-    textInputs: ".stem_answer textarea, .stem_answer input[type='text']",
-    fontStyles: "style",
-    matching: {
-      groups: [
-        ".stem_answer .line_wid_half.fl .lineCt",
-        ".stem_answer .line_wid_half.fr .lineCt",
-      ],
-      text: ".wid350",
-      row: /** @param {string} value */ (value) =>
-        `.line_answer_ct[index="${value}"]`,
-      option: /** @param {string} value */ (value) =>
-        `.options li[data="${value}"] a`,
-      dropdown: ".selectBox > p",
-    },
+  workExam,
+  examPreview: {
+    ...workExam,
+    question: ".questionLi",
+    number: ":scope > h3",
+    title: ":scope > h3",
   },
   courseTree: {
     nodeClass: "div.posCatalog_select",

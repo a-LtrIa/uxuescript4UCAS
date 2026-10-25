@@ -1,9 +1,9 @@
 import { config, cooldown } from "@injected/chaoxing/runtime.js";
 import { emit, safeRun } from "@injected/chaoxing/course/runtime.js";
-import { handleVideo } from "./video.js";
-import { handleAudio } from "./audio.js";
-import { handlePDF } from "./pdf.js";
-import { handleQuiz } from "./quiz.js";
+import { handleVideo } from "@injected/chaoxing/course/chapter/tasks/video.js";
+import { handleAudio } from "@injected/chaoxing/course/chapter/tasks/audio.js";
+import { handlePDF } from "@injected/chaoxing/course/chapter/tasks/pdf.js";
+import { handleQuiz } from "@injected/chaoxing/course/chapter/tasks/quiz.js";
 import { wait, assert } from "@injected/utils/async.js";
 import { SELECTORS } from "@injected/chaoxing/selectors.js";
 /**

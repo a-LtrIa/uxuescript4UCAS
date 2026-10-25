@@ -18,7 +18,7 @@ async function setup(invoke) {
   vi.spyOn(console, "info").mockImplementation(() => {});
   vi.spyOn(console, "error").mockImplementation(() => {});
   vi.stubGlobal("__TAURI_INTERNALS__", invoke ? { invoke } : undefined);
-  const { main } = await import("@injected/chaoxing/course/index.js");
+  const { main } = await import("@injected/chaoxing/course.js");
   const timer = vi.spyOn(window, "setTimeout");
   return { run: main(), nativeConfirm, timer };
 }

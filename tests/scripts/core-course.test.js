@@ -1,11 +1,11 @@
 import { flushPromises } from "@vue/test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { handleCourse } from "@injected/chaoxing/course/chapters.js";
-import { handleChapter } from "@injected/chaoxing/course/chapter/index.js";
+import { handleChapter } from "@injected/chaoxing/course/chapter.js";
 import { config } from "@injected/chaoxing/runtime.js";
 import { emit } from "@injected/chaoxing/course/runtime.js";
 
-vi.mock("@injected/chaoxing/course/chapter/index.js", () => ({
+vi.mock("@injected/chaoxing/course/chapter.js", () => ({
   handleChapter: vi.fn(),
 }));
 afterEach(() => {

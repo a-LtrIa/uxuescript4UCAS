@@ -1,5 +1,5 @@
 {
-  "core": "chaoxing/course/index.js",
+  "core": "chaoxing/course.js",
   "work": "chaoxing/work.js",
   "exam": "chaoxing/exam.js",
   "click-auto-login": "chaoxing/click-auto-login.js",

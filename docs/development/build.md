@@ -17,7 +17,9 @@ pnpm tauri dev
 
 注入脚本源码位于 `injected/`：`entries.json` 声明产物名称与源码模块的对应关系，构建器通过 Vite 虚拟模块统一生成“导入并调用 main”的入口，无需维护入口 JS 文件。`chaoxing/` 保存依赖超星业务及 DOM 的适配，`utils/` 保存不依赖平台的工具，`runtime/` 保存 WebView 运行环境工具。源码通过 `import/export` 复用，JavaScript 使用 JSDoc 声明类型，统一由 Vite 打包。新增入口时修改映射；开发进程需重启以加载新增入口。
 
-超星课程源码按 `course/ → chapter/ → tasks/` 组织，分别负责课程运行、章节页签和任务点；作业与考试入口位于 `chaoxing/`，共享题目处理位于 `questions/`。共享运行配置和无参 `cooldown()` 位于 `chaoxing/runtime.js`；课程进度报告和错误处理位于 `course/runtime.js`。业务函数直接导入所需能力，不额外传递上下文或创建工厂。
+超星课程源码按 `course/ → chapter/ → tasks/` 组织，分别负责课程运行、章节页签和任务点；作业与考试入口位于 `chaoxing/`，共享题目处理及整页答题位于 `questions/`，考试跨页流程位于 `exam/paged.js`。作业默认整页，考试优先整卷预览，禁止预览时才走跨页流程。共享运行配置和无参 `cooldown()` 位于 `chaoxing/runtime.js`；课程进度报告和错误处理位于 `course/runtime.js`。业务函数直接导入所需能力，不额外传递上下文或创建工厂。
+
+脚本按同名入口文件与目录并列组织，例如 `course.js + course/`、`course/chapter.js + course/chapter/`、`course/chapter/tasks.js + course/chapter/tasks/`。入口直接承载流程，不使用 `index.js` 或额外转导出包装。
 
 跨目录引用使用 `@injected/` 别名，同目录使用相对路径。脚本构建与 Vitest 从 `scripts/script-aliases.mjs` 读取同一份别名配置，编辑器路径映射位于 `tsconfig.json`；别名在打包时解析，不会留在独立脚本中。
 注入脚本、JS 测试及构建工具由根目录 `jsconfig.json` 管理，开启 `checkJs` 和 `noImplicitAny`，使用 JSDoc 声明具体类型；页面 API 的类型与使用它的模块放在一起，不新增 TypeScript 源码。`tsconfig.json` 负责 Vue/TypeScript 项目。`node scripts/typecheck.cjs --noEmit` 依次检查两者，`pnpm build` 与 CI 同样执行该检查。

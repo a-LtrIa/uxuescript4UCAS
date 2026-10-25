@@ -3,7 +3,7 @@ import { computed, ref } from "vue";
 import SaveIcon from "@/assets/save.svg?component";
 import CancelIcon from "@/assets/cancel.svg?component";
 import { useScaleFeedback } from "@/composables/useScaleFeedback";
-import VTextBox from "./VTextBox.vue";
+import VTextBox from "@/components/base/VTextBox.vue";
 import { label } from "@/labels";
 
 const { data, methods } = defineProps<{

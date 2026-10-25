@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { main } from "@injected/chaoxing/exam.js";
+import { answerPaged } from "@injected/chaoxing/exam/paged.js";
 import { fillAnswer } from "@injected/chaoxing/questions/fill.js";
 import { config } from "@injected/chaoxing/runtime.js";
 
@@ -40,7 +40,7 @@ const save = vi.fn(
 
 /**
  * @param {number} index
- * @param {import("@injected/chaoxing/exam.js").ExamRun|null} run
+ * @param {import("@injected/chaoxing/exam/paged.js").ExamRun|null} run
  */
 function setup(index, run) {
   document.body.innerHTML = `
@@ -59,7 +59,7 @@ function setup(index, run) {
   if (run) window.sessionStorage.setItem(key, JSON.stringify(run));
 }
 
-/** @returns {import("@injected/chaoxing/exam.js").ExamRun} */
+/** @returns {import("@injected/chaoxing/exam/paged.js").ExamRun} */
 function storedRun() {
   return JSON.parse(window.sessionStorage.getItem(key));
 }
@@ -82,7 +82,7 @@ afterEach(() => {
 
 it("reports an error when starting outside the stored question", async () => {
   setup(1, null);
-  await main();
+  await answerPaged();
   expect(navigate).not.toHaveBeenCalled();
   expect(fillAnswer).not.toHaveBeenCalled();
   expect(window.sessionStorage.getItem(key)).toBeNull();
@@ -102,7 +102,7 @@ it("reports manual navigation instead of correcting the stored position", async 
     font: null,
     answers,
   });
-  await main();
+  await answerPaged();
   expect(navigate).not.toHaveBeenCalled();
   expect(fillAnswer).not.toHaveBeenCalled();
   expect(save).not.toHaveBeenCalled();
@@ -114,7 +114,7 @@ it("reports manual navigation instead of correcting the stored position", async 
 
 it("collects the first question and advances without solving", async () => {
   setup(0, null);
-  await main();
+  await answerPaged();
   expect(storedRun()).toMatchObject({
     phase: "collect",
     index: 1,
@@ -134,7 +134,7 @@ it("solves the collected paper at the last question and returns to the first", a
     font: null,
     answers: [],
   });
-  await main();
+  await answerPaged();
   expect(backend.invoke).toHaveBeenLastCalledWith("solve_questions", {
     payload: { questions, font: null },
   });
@@ -159,7 +159,7 @@ it("fills an answer by displayed number and advances", async () => {
     font: null,
     answers,
   });
-  await main();
+  await answerPaged();
   expect(fillAnswer).toHaveBeenCalledWith(
     document.querySelector(".questionLi"),
     "A",
@@ -182,7 +182,7 @@ it("saves the last answer and clears progress without submitting or navigating",
     font: null,
     answers,
   });
-  await main();
+  await answerPaged();
   expect(fillAnswer).toHaveBeenCalledWith(
     document.querySelector(".questionLi"),
     "B",
@@ -213,7 +213,7 @@ it("awaits answers before switching strategy or navigating", async () => {
     resolveAnswers = resolve;
   });
   backend.invoke.mockReturnValue(response);
-  const processing = main();
+  const processing = answerPaged();
   await vi.waitFor(() =>
     expect(backend.invoke).toHaveBeenCalledWith("solve_questions", {
       payload: { questions, font: null },
@@ -237,7 +237,7 @@ it("runs both passes from storage and fetches configuration only once", async ()
     // Each URL starts with a fresh runtime config and restores its own stored step.
     config.switchingCd = 60;
     setup(index, null);
-    await main();
+    await answerPaged();
   }
   expect(backend.invoke.mock.calls.map(([command]) => command)).toEqual([
     "options",

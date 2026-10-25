@@ -2,7 +2,7 @@ import { flushPromises } from "@vue/test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { config } from "@injected/chaoxing/runtime.js";
 import { wait } from "@injected/utils/async.js";
-import { handleTab } from "@injected/chaoxing/course/chapter/tasks/index.js";
+import { handleTab } from "@injected/chaoxing/course/chapter/tasks.js";
 import { handleVideo } from "@injected/chaoxing/course/chapter/tasks/video.js";
 import { handleAudio } from "@injected/chaoxing/course/chapter/tasks/audio.js";
 import { handlePDF } from "@injected/chaoxing/course/chapter/tasks/pdf.js";

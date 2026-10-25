@@ -1,4 +1,4 @@
-import type { SelectorMethods } from "@/components/base/VSelector.types";
+import type { SelectorMethods } from "@/components/base/VSelector/types";
 import { enableAutoUnmount, mount } from "@vue/test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import VSelector from "@/components/base/VSelector.vue";

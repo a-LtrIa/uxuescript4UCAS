@@ -1,5 +1,5 @@
 import { computed, onMounted, reactive, ref } from "vue";
-import type { SelectorData } from "@/components/base/VSelector.types";
+import type { SelectorData } from "@/components/base/VSelector/types";
 import { commands, type LLMProvider } from "@/services/cmds";
 import { showError } from "@/services/errors";
 import { label } from "@/labels";

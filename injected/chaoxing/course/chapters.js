@@ -1,7 +1,7 @@
 import { config } from "@injected/chaoxing/runtime.js";
 import { emit, safeRun } from "./runtime.js";
 import { wait } from "@injected/utils/async.js";
-import { handleChapter } from "@injected/chaoxing/course/chapter/index.js";
+import { handleChapter } from "@injected/chaoxing/course/chapter.js";
 import { SELECTORS } from "@injected/chaoxing/selectors.js";
 /**
  * 获取课程目录中的章节节点，保持页面顺序。

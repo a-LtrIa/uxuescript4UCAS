@@ -3,8 +3,8 @@ import DeleteIcon from "@/assets/delete.svg?component";
 import EditIcon from "@/assets/edit.svg?component";
 import NewIcon from "@/assets/new.svg?component";
 import { useScaleFeedback } from "@/composables/useScaleFeedback";
-import type { SelectorItem } from "./VSelector.types";
-import VRollTransition from "./VRollTransition.vue";
+import type { SelectorItem } from "./types";
+import VRollTransition from "@/components/base/VRollTransition.vue";
 import { label } from "@/labels";
 
 const { data, methods } = defineProps<{
