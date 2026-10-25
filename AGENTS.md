@@ -25,7 +25,7 @@ The detailed rules in [`.agents/AGENTS.md`](.agents/AGENTS.md) are task-specific
 - Rust macros, handler registration, or generated bindings: [Code generation and architecture](.agents/AGENTS.md#code-generation-and-architecture).
 - CSS, Vue layout, native window sizing, or alignment: [Proportional layout](.agents/AGENTS.md#proportional-layout).
 - Config DTOs, templates, or Rust naming: [Data and code organization](.agents/AGENTS.md#data-and-code-organization).
-- `src-tauri/src/scripts/core.js` or its injection paths: [Standalone script contract](.agents/AGENTS.md#standalone-script-contract).
+- `injected/` or its build/injection paths: [Standalone script contract](.agents/AGENTS.md#standalone-script-contract). The self-contained delivery contract applies to bundled `dist/scripts/*.js`; source modules may use imports.
 - Tauri WebView security, startup, or navigation: [WebView behavior](.agents/AGENTS.md#webview-behavior).
 - Repository review, diagnosis, or author/project assessment: [Review and reporting](.agents/AGENTS.md#review-and-reporting).
 - Zed terminal, Agent runner, pnpm access, or ACP tools: [Zed and Agent environment](.agents/AGENTS.md#zed-and-agent-environment).
