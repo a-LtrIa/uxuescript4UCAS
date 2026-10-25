@@ -8,14 +8,14 @@ pnpm build
 cargo test --workspace --locked
 ```
 
-`pnpm build` 包含类型检查和前端生产构建。只需类型检查可运行 `node scripts/typecheck.cjs --noEmit`；直接执行 Cargo 前先运行 `pnpm sync:config`。
+`pnpm build` 包含类型检查、前端生产构建和注入脚本打包。只需类型检查可运行 `node scripts/typecheck.cjs --noEmit`；直接执行 Cargo 前先运行 `pnpm sync:config` 和 `pnpm build:scripts`。
 
 ## 测试归属
 
 | 位置 | 验证职责 |
 | --- | --- |
 | `tests/components/`、`layouts/`、`composables/`、`services/` | 前端组件与业务交互 |
-| `tests/scripts/` | 注入脚本；`tests/support/core.ts` 统一加载独立脚本 |
+| `tests/scripts/` | 普通 JS 用例直接导入 `injected/` 模块；跨 frame 隔离场景保留产物沙箱，`pnpm test` 自动先打包 |
 | `tests/integration/` | 跨组件语言切换 |
 | `tests/tooling/` | 配置同步与发布脚本 |
 | `tests/updater/` | 更新模拟服务与[手动安装验证](updater/README.md) |
@@ -41,6 +41,10 @@ cargo test -p uxuescript test_solve_bigmodel -- --ignored --nocapture
 
 ## 增补测试
 
-测试沿被测职责组织，场景专属数据、mock 和断言留在用例附近。公共支持只收拢真实复用的机制：Rust 的 `src-tauri/tests/unit/support.rs` 与 `support/` 提供 HTTP 模拟、HTML 解压，固定样本在 `src-tauri/tests/assets/`。
+`tests/fixtures/chaoxing/` 保存用户提供的真实单选、连线题 HTML 节选，去除身份信息及无关页面区域。`tests/scripts/questions.test.js` 检查题目提取和选项点击，尤其覆盖连线题显示编号与内部 `data` 标识不同的情况。样本未包含下拉框处理脚本，因此这些用例不验证页面脚本更新隐藏答案或服务端暂存。
+
+同一 JS 用例还读取 `src-tauri/tests/assets/course-page/webpage.html.gz`，用章节测验选择器核对题目列表与字体原始字节。Rust 命令测试分别覆盖 `QuestionPayload` 无字体直传和有字体解密后求解；解密测试及求解联测直接读取题目 JSON 与字体样本，不再解析 HTML。
+
+测试沿被测职责组织，场景专属数据、mock 和断言留在用例附近。公共支持只收拢真实复用的机制：Rust 的 `src-tauri/tests/unit/support.rs` 与 `support/` 提供 HTTP 模拟，固定样本在 `src-tauri/tests/assets/`。
 
 测试清理自己创建的资源，预期样本只读。新增本地用例不应删除或替代已有外部联测。

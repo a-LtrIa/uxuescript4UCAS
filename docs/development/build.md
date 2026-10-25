@@ -13,6 +13,23 @@ pnpm install --frozen-lockfile
 pnpm tauri dev
 ```
 
+## 注入脚本
+
+注入脚本源码位于 `injected/`：`entries.json` 声明产物名称与源码模块的对应关系，构建器通过 Vite 虚拟模块统一生成“导入并调用 main”的入口，无需维护入口 JS 文件。`chaoxing/` 保存依赖超星业务及 DOM 的适配，`utils/` 保存不依赖平台的工具，`runtime/` 保存 WebView 运行环境工具。源码通过 `import/export` 复用，JavaScript 使用 JSDoc 声明类型，统一由 Vite 打包。新增入口时修改映射；开发进程需重启以加载新增入口。
+
+超星课程源码按 `course/ → chapter/ → tasks/` 组织，分别负责课程运行、章节页签和任务点；作业与考试入口位于 `chaoxing/`，共享题目处理位于 `questions/`。共享运行配置和无参 `cooldown()` 位于 `chaoxing/runtime.js`；课程进度报告和错误处理位于 `course/runtime.js`。业务函数直接导入所需能力，不额外传递上下文或创建工厂。
+
+跨目录引用使用 `@injected/` 别名，同目录使用相对路径。脚本构建与 Vitest 从 `scripts/script-aliases.mjs` 读取同一份别名配置，编辑器路径映射位于 `tsconfig.json`；别名在打包时解析，不会留在独立脚本中。
+注入脚本、JS 测试及构建工具由根目录 `jsconfig.json` 管理，开启 `checkJs` 和 `noImplicitAny`，使用 JSDoc 声明具体类型；页面 API 的类型与使用它的模块放在一起，不新增 TypeScript 源码。`tsconfig.json` 负责 Vue/TypeScript 项目。`node scripts/typecheck.cjs --noEmit` 依次检查两者，`pnpm build` 与 CI 同样执行该检查。
+
+脚本检查使用 `pnpm lint:scripts` 和 `pnpm fmt:scripts:check`，CI 同样执行这两项；格式修复使用 `pnpm fmt:scripts`。ESLint 对脚本使用普通 JavaScript 规则，并禁止跨目录相对导入；Prettier 沿用根配置，忽略生成的 `dist/` 产物。Zed 已配置保存时使用 Prettier，VS Code 的 JavaScript 保存格式化也使用 Prettier 扩展。
+
+TypeScript 依赖采用双版本别名：`typescript` 指向提供编译器 API 的 TS 6，供 ESLint 和 Vue 检查器使用；`@typescript/native` 保留 TS 7 及其 `tsc` 命令。Vue 检查继续由 `scripts/typecheck.cjs` 执行。
+
+`pnpm build:scripts` 调用 Vite 的构建 API，由 Rolldown 解析模块和合并依赖，再由 Prettier 格式化产物；不通过文本替换拼合源码。每个入口构建为独立 IIFE，输出到 `dist/scripts/`。课程入口在同一次构建中输出可直接复制执行的 `core.js` 和通过输出配置 `banner` 添加元数据的 `uxuescript.user.js`，不在构建后拼接文件；监听模式同样更新两份产物。Rust 统一通过 `include_script!` 宏读取产物，根路径基于 Cargo 内置的 `CARGO_MANIFEST_DIR`，不依赖调用文件的目录层级。
+
+`pnpm dev` 在启动界面开发服务器前构建脚本，并持续监听脚本及其依赖；产物变化会触发 Tauri 的 Rust 重编译。`pnpm build` 先构建界面，再生成脚本，避免界面构建清理 `dist` 时删除脚本。直接执行 Cargo（包括 `cargo sync-bindings`）前，先运行 `pnpm build:scripts`。不把构建产物作为源码维护。
+
 只调试 Vue 页面可运行 `pnpm dev`，但这不会创建 Tauri 窗口，不能验证 IPC、课程 WebView 或本地配置读写。
 
 ## 共享构建配置
@@ -33,6 +50,7 @@ pnpm sync:config
 
 ```powershell
 pnpm sync:config
+pnpm build:scripts
 cargo sync-bindings
 ```
 
