@@ -24,7 +24,8 @@
 
     /* Paths mapping */
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@injected/*": ["./injected/*"]
     }
   },
   "include": [
@@ -32,9 +33,7 @@
     "src/**/*.d.ts",
     "src/**/*.tsx",
     "src/**/*.vue",
-    "tests/**/*.ts",
-    "src-tauri/src/scripts/core.js",
-    "src-tauri/src/scripts/work.js"
+    "tests/**/*.ts"
   ],
   "exclude": ["**/*.mjs"],
   "references": [{ "path": "./tsconfig.node.json" }]

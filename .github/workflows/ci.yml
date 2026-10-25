@@ -66,8 +66,10 @@ jobs:
       - name: Run frontend tests
         run: pnpm test
 
-      - name: Build browser scripts
-        run: pnpm build:scripts
+      - name: Lint and check script formatting
+        run: |
+          pnpm lint:scripts
+          pnpm fmt:scripts:check
 
       - name: Check types and build frontend
         run: pnpm build
