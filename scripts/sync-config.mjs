@@ -5,22 +5,35 @@ import { fileURLToPath } from "node:url";
 import { JSDOM } from "jsdom";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const config = JSON.parse(read("config/build.json"));
+const config = /** @type {typeof import("../config/build.json")} */ (
+  JSON.parse(read("config/build.json"))
+);
 const version = process.env.UXS_BUILD_VERSION ?? config.version;
 const profile = process.env.UXS_MSI_PROFILE === "mock" ? "mock" : "default";
 const identifier =
   profile === "mock" ? config.app.mock_identifier : config.app.identifier;
 const msi = config.msi[profile];
 
+/** @param {string} path */
 function read(path) {
   return readFileSync(resolve(root, path), "utf8");
 }
 
+/**
+ * @param {string} path
+ * @param {string} content
+ */
 function write(path, content) {
   const target = resolve(root, path);
   if (readFileSync(target, "utf8") !== content) writeFileSync(target, content);
 }
 
+/**
+ * @param {string} source
+ * @param {string} table
+ * @param {string} key
+ * @param {string | string[]} value
+ */
 function setTomlField(source, table, key, value) {
   const tableStart = source.indexOf(`[${table}]`);
   const nextTable = source.indexOf("\n[", tableStart + 1);
@@ -54,13 +67,17 @@ const manifest = spawnSync(
 );
 if (manifest.status !== 0)
   throw new Error(manifest.stderr || "Cargo rejected src-tauri/Cargo.toml");
-const cargoPackage = JSON.parse(manifest.stdout);
+const cargoPackage = /** @type {{name: string, version: string}} */ (
+  JSON.parse(manifest.stdout)
+);
 if (cargoPackage.version !== version || cargoPackage.name !== config.app.name)
   throw new Error(
     "Cargo parsed package metadata does not match config/build.json",
   );
 
-const packageJson = JSON.parse(read("package.json"));
+const packageJson = /** @type {typeof import("../package.json")} */ (
+  JSON.parse(read("package.json"))
+);
 packageJson.name = config.app.name;
 packageJson.version = version;
 write("package.json", `${JSON.stringify(packageJson, null, 2)}\n`);
