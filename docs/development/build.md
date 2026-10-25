@@ -30,7 +30,9 @@ TypeScript 依赖采用双版本别名：`typescript` 指向提供编译器 API 
 
 `pnpm build:scripts` 调用 Vite 的构建 API，由 Rolldown 解析模块和合并依赖；不通过文本替换拼合源码。每个入口构建为独立 IIFE，压缩后输出到 `dist/scripts/embedded/`，供 Rust 内嵌。课程入口在同一次构建中额外输出 `dist/scripts/core.js` 和通过输出配置 `banner` 添加元数据的 `dist/scripts/uxuescript.user.js`；这两份公开产物关闭压缩，并由 Prettier 格式化，方便阅读和复制执行。监听模式同样更新全部产物。Rust 统一通过 `include_script!` 宏读取 `embedded/` 中的压缩产物，根路径基于 Cargo 内置的 `CARGO_MANIFEST_DIR`，不依赖调用文件的目录层级。
 
-`pnpm dev` 在启动界面开发服务器前构建脚本，并持续监听脚本及其依赖；产物变化会触发 Tauri 的 Rust 重编译。`pnpm build` 先构建界面，再生成脚本，避免界面构建清理 `dist` 时删除脚本。直接执行 Cargo（包括 `cargo sync-bindings`）前，先运行 `pnpm build:scripts`。不把构建产物作为源码维护。
+`pnpm tauri dev` 会启动 `pnpm dev`，后者在启动界面开发服务器前构建脚本，并通过 Vite 持续监听脚本及其依赖。Tauri 通过 `additionalWatchFolders` 监听 `dist/scripts/`；根目录 `.taurignore` 放行该目录，避免 `.gitignore` 中的 `dist` 规则阻止注册监听。脚本重新打包后触发 Rust 重编译并重启应用。修改监听配置后需重新启动 `pnpm tauri dev`。
+
+`pnpm build` 先构建界面，再生成脚本，避免界面构建清理 `dist` 时删除脚本。直接执行 Cargo（包括 `cargo sync-bindings`）前，先运行 `pnpm build:scripts`。不把构建产物作为源码维护。
 
 只调试 Vue 页面可运行 `pnpm dev`，但这不会创建 Tauri 窗口，不能验证 IPC、课程 WebView 或本地配置读写。
 
