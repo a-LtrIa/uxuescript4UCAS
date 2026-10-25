@@ -7,7 +7,18 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { syncRelease, syncTag } from "../../scripts/sync-gitee-release.mjs";
 
-let server, base, options, state, directory;
+/** @type {import("node:http").Server} */
+let server;
+/** @type {string} */
+let base;
+/** @type {import("../../scripts/sync-gitee-release.mjs").SyncReleaseOptions & {log: import("vitest").Mock<(message: string) => void>, synchronizeTag: import("vitest").Mock<(options: import("../../scripts/sync-gitee-release.mjs").TagOptions) => string>}} */
+let options;
+/**
+ * @type {{release: {id: number, name?: string} | null, files: import("../../scripts/sync-gitee-release.mjs").GiteeFile[], nextId: number, calls: string[], fail: string | null, badSize: boolean, branch: {name: string} | null, feed: string | null, missingFeedStatus: number, uploadedData: Map<string, Buffer>, latestId: number, prerelease: boolean, omitManifest: boolean}}
+ */
+let state;
+/** @type {string | undefined} */
+let directory;
 const canonical = {
   version: "2.1.4",
   notes: "Release notes",
@@ -51,6 +62,10 @@ beforeEach(async () => {
     const url = new URL(req.url, base);
     const path = url.pathname;
     state.calls.push(`${req.method} ${path}`);
+    /**
+     * @param {number} status
+     * @param {unknown} [data]
+     */
     const reply = (status, data) => {
       res.writeHead(status, { "content-type": "application/json" });
       res.end(JSON.stringify(data));
@@ -110,7 +125,7 @@ beforeEach(async () => {
         headers: { "content-type": req.headers["content-type"] },
         body: Buffer.concat(chunks),
       });
-      const file = (await request.formData()).get("file");
+      const file = /** @type {File} */ ((await request.formData()).get("file"));
       const data = Buffer.from(await file.arrayBuffer());
       if (file.name !== "latest.json")
         expect(data).toEqual(contents.get(file.name));
@@ -142,8 +157,10 @@ beforeEach(async () => {
     state.release = { id: 42, ...data };
     reply(req.method === "POST" ? 201 : 200, state.release);
   });
-  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-  base = `http://127.0.0.1:${server.address().port}`;
+  await new Promise((resolve) =>
+    server.listen(0, "127.0.0.1", () => resolve(undefined)),
+  );
+  base = `http://127.0.0.1:${/** @type {import("node:net").AddressInfo} */ (server.address()).port}`;
   options = {
     githubRepo: "unraous/uxuescript",
     giteeRepo: "unraous/uxuescript",
@@ -181,7 +198,9 @@ describe("Gitee Release synchronization", () => {
       target_commitish: "a".repeat(40),
     });
     expect(state.files.map((file) => file.name)).toEqual([...contents.keys()]);
-    const mirrored = JSON.parse(state.uploadedData.get("latest.json"));
+    const mirrored = JSON.parse(
+      state.uploadedData.get("latest.json").toString(),
+    );
     expect(mirrored).toMatchObject({
       version: canonical.version,
       notes: canonical.notes,
@@ -195,7 +214,9 @@ describe("Gitee Release synchronization", () => {
         signature: platform.signature,
       });
     }
-    expect(JSON.parse(contents.get("latest.json"))).toEqual(canonical);
+    expect(JSON.parse(contents.get("latest.json").toString())).toEqual(
+      canonical,
+    );
     expect(JSON.parse(state.feed)).toEqual(mirrored);
     expect(options.log.mock.calls.at(-2)[0]).toBe("Uploaded latest.json");
     expect(options.log).toHaveBeenLastCalledWith(
@@ -324,6 +345,7 @@ describe("tag synchronization", () => {
     const cwd = join(directory, "source"),
       remote = join(directory, "remote.git");
     await mkdir(cwd);
+    /** @param {string[]} args */
     const run = (...args) => {
       const result = spawnSync("git", args, { cwd, encoding: "utf8" });
       expect(result.status, result.stderr).toBe(0);

@@ -7,6 +7,30 @@ import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { pathToFileURL } from "node:url";
 
+/**
+ * @typedef {{tag: string, remote: string, cwd: string, user: string, token: string}} TagOptions
+ * @typedef {{id: number, name: string, size: number, browser_download_url?: string}} GiteeFile
+ * @typedef {{version: string, notes?: string, pub_date?: string, platforms: Record<string, {url: string, signature: string}>}} UpdateManifest
+ * @typedef {{id: number, tag_name: string, name: string, body: string, draft?: boolean, prerelease: boolean, assets: {name: string, size: number, url: string}[]}} GitHubRelease
+ * @typedef {Object} SyncReleaseOptions
+ * @property {string} githubRepo
+ * @property {string} giteeRepo
+ * @property {string} tag
+ * @property {string} [githubToken]
+ * @property {string} giteeToken
+ * @property {string} [githubApi]
+ * @property {string} [giteeApi]
+ * @property {string} [cwd]
+ * @property {string} [remote]
+ * @property {(options: TagOptions) => string} [synchronizeTag]
+ * @property {(message: string) => void} [log]
+ */
+
+/**
+ * @param {string[]} args
+ * @param {string} cwd
+ * @param {NodeJS.ProcessEnv} [env]
+ */
 function git(args, cwd, env = process.env) {
   const result = spawnSync("git", args, { cwd, env, encoding: "utf8" });
   // Git errors can contain authentication details; report the operation without its output.
@@ -15,6 +39,7 @@ function git(args, cwd, env = process.env) {
   return result.stdout.trim();
 }
 
+/** @param {TagOptions} options */
 export function syncTag({ tag, remote, cwd, user, token }) {
   git(["check-ref-format", `refs/tags/${tag}`], cwd);
   const commit = git(["rev-parse", `refs/tags/${tag}^{commit}`], cwd);
@@ -43,6 +68,11 @@ export function syncTag({ tag, remote, cwd, user, token }) {
   return commit;
 }
 
+/**
+ * @param {string} url
+ * @param {RequestInit & { token?: string }} [options]
+ * @param {boolean} [allowMissing]
+ */
 async function request(url, { token, ...options } = {}, allowMissing = false) {
   const response = await fetch(url, {
     ...options,
@@ -61,6 +91,10 @@ async function request(url, { token, ...options } = {}, allowMissing = false) {
   return response;
 }
 
+/**
+ * @param {UpdateManifest} manifest
+ * @param {GiteeFile[]} files
+ */
 export function mirrorManifest(manifest, files) {
   const mirrored = structuredClone(manifest);
   for (const platform of Object.values(mirrored.platforms)) {
@@ -75,6 +109,7 @@ export function mirrorManifest(manifest, files) {
   return mirrored;
 }
 
+/** @param {{api: (url: string, options?: RequestInit, missing?: boolean) => Promise<Response | null>, base: string, githubApi: string, githubRepo: string, githubToken?: string, source: GitHubRelease, commit: string, content: string}} options */
 async function publishLatest({
   api,
   base,
@@ -85,11 +120,13 @@ async function publishLatest({
   commit,
   content,
 }) {
-  const latest = await (
-    await request(`${githubApi}/repos/${githubRepo}/releases/latest`, {
-      token: githubToken,
-    })
-  ).json();
+  const latest = /** @type {{id: number}} */ (
+    await (
+      await request(`${githubApi}/repos/${githubRepo}/releases/latest`, {
+        token: githubToken,
+      })
+    ).json()
+  );
   // Manual retries of older releases must not replace the current stable update feed.
   if (latest.id !== source.id || source.prerelease) return;
   const branch = await api(`${base}/branches/updates`, {}, true);
@@ -100,9 +137,13 @@ async function publishLatest({
       body: JSON.stringify({ branch_name: "updates", refs: commit }),
     });
   const found = await api(`${base}/contents/latest.json?ref=updates`, {}, true);
-  const entry = found ? await found.json() : null;
+  const entry = /** @type {{sha: string} | [] | null} */ (
+    found ? await found.json() : null
+  );
   // Gitee returns HTTP 200 with [] when the file does not exist.
-  const current = Array.isArray(entry) && entry.length === 0 ? null : entry;
+  const current = /** @type {{sha: string} | null} */ (
+    Array.isArray(entry) && entry.length === 0 ? null : entry
+  );
   await api(`${base}/contents/latest.json`, {
     method: current ? "PUT" : "POST",
     headers: { "Content-Type": "application/json" },
@@ -115,6 +156,7 @@ async function publishLatest({
   });
 }
 
+/** @param {SyncReleaseOptions} options */
 export async function syncRelease({
   githubRepo,
   giteeRepo,
@@ -136,12 +178,14 @@ export async function syncRelease({
     throw new Error(
       "Set the GITEE_TOKEN repository secret before synchronizing releases",
     );
-  const source = await (
-    await request(
-      `${githubApi}/repos/${githubRepo}/releases/tags/${encodeURIComponent(tag)}`,
-      { token: githubToken },
-    )
-  ).json();
+  const source = /** @type {GitHubRelease} */ (
+    await (
+      await request(
+        `${githubApi}/repos/${githubRepo}/releases/tags/${encodeURIComponent(tag)}`,
+        { token: githubToken },
+      )
+    ).json()
+  );
   if (source.draft || source.tag_name !== tag)
     throw new Error(
       "Source must be a published GitHub Release with the requested tag",
@@ -154,31 +198,42 @@ export async function syncRelease({
     user: giteeRepo.split("/")[0],
   });
   const base = `${giteeApi}/repos/${giteeRepo}/releases`;
+  /**
+   * @param {string} url
+   * @param {RequestInit} [options]
+   * @param {boolean} [missing]
+   */
   const api = (url, options = {}, missing = false) =>
     request(url, { token: giteeToken, ...options }, missing);
   const found = await api(`${base}/tags/${encodeURIComponent(tag)}`, {}, true);
-  const existing = found ? await found.json() : null;
-  const release = await (
-    await api(existing ? `${base}/${existing.id}` : base, {
-      method: existing ? "PATCH" : "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        tag_name: tag,
-        name: source.name || tag,
-        body: source.body || "",
-        target_commitish: commit,
-        prerelease: source.prerelease,
-      }),
-    })
-  ).json();
+  const existing = /** @type {{id: number} | null} */ (
+    found ? await found.json() : null
+  );
+  const release = /** @type {{id: number}} */ (
+    await (
+      await api(existing ? `${base}/${existing.id}` : base, {
+        method: existing ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tag_name: tag,
+          name: source.name || tag,
+          body: source.body || "",
+          target_commitish: commit,
+          prerelease: source.prerelease,
+        }),
+      })
+    ).json()
+  );
   const attachmentsUrl = `${base}/${release.id}/attach_files`;
+  /** @returns {Promise<GiteeFile[]>} */
   async function attachments() {
     const files = [];
+    /** @type {GiteeFile[]} */
     let pageFiles;
     for (let page = 1; page === 1 || pageFiles.length === 100; page++) {
-      pageFiles = await (
-        await api(`${attachmentsUrl}?page=${page}&per_page=100`)
-      ).json();
+      pageFiles = /** @type {GiteeFile[]} */ (
+        await (await api(`${attachmentsUrl}?page=${page}&per_page=100`)).json()
+      );
       files.push(...pageFiles);
     }
     return files;
@@ -207,7 +262,9 @@ export async function syncRelease({
       if ((await stat(file)).size !== asset.size)
         throw new Error(`Downloaded attachment size mismatch: ${asset.name}`);
       if (asset === manifestAsset) {
-        const manifest = JSON.parse(await readFile(file, "utf8"));
+        const manifest = /** @type {UpdateManifest} */ (
+          JSON.parse(await readFile(file, "utf8"))
+        );
         mirroredContent =
           JSON.stringify(
             mirrorManifest(manifest, await attachments()),
@@ -223,9 +280,9 @@ export async function syncRelease({
         await api(`${attachmentsUrl}/${old.id}`, { method: "DELETE" });
       const form = new FormData();
       form.set("file", await openAsBlob(file), asset.name);
-      const uploaded = await (
-        await api(attachmentsUrl, { method: "POST", body: form })
-      ).json();
+      const uploaded = /** @type {GiteeFile} */ (
+        await (await api(attachmentsUrl, { method: "POST", body: form })).json()
+      );
       if (uploaded.size !== size)
         throw new Error(`Gitee attachment verification failed: ${asset.name}`);
       log(`Uploaded ${asset.name}`);
