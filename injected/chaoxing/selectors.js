@@ -49,6 +49,7 @@ export const SELECTORS = {
     tag: "video",
     launchBtnClass: ".vjs-big-play-button",
     timelineClass: ".ans-timelineobjects",
+    annotationContinueClass: ".ans-videoannotation .continueLearn",
     quizClass: ".ans-videoquiz",
     quizItemClass: ".tkItem",
     quizTitleClass: ".tkItem_title",

@@ -2,6 +2,7 @@ import { cooldown } from "@injected/chaoxing/runtime.js";
 import { wait, assert } from "@injected/utils/async.js";
 import { confirm } from "@injected/utils/backend.js";
 import { SELECTORS } from "@injected/chaoxing/selectors.js";
+import { waitForTimeline } from "./timeline.js";
 /**
  * @typedef {Object} QuizData
  * @property {{name: string}[]} [options]
@@ -10,12 +11,6 @@ import { SELECTORS } from "@injected/chaoxing/selectors.js";
  * @property {string} [memberinfo]
  * @property {string} [description]
  * @property {string} [answerContent]
- */
-
-/**
- * @typedef {Object} TimelineComponent
- * @property {{style: string, datas: QuizData[]}[]} objects
- * @property {string} validationUrl2
  */
 
 /**
@@ -130,30 +125,17 @@ export const resolveInteractiveQuizAnswer = async (
 
 /**
  * @param {HTMLElement} timeline
+ * @param {QuizData[]} datas
+ * @param {string} validationUrl2
  */
-const getInteractiveQuizData = async (timeline) => {
-  const videoWindow =
-    /** @type {Window & {Ext?: {getCmp(id: string): TimelineComponent | undefined}}} */ (
-      timeline.ownerDocument.defaultView
-    );
-  const component = videoWindow?.Ext?.getCmp?.(timeline.id);
-  if (!component?.objects?.length) return [];
-
-  const quizObjects = component.objects.filter(
-    ({ style, datas }) =>
-      (style === "QUIZ" || style === "InteractiveQuiz") && datas?.length,
-  );
-  if (!quizObjects.length) return [];
-
+const resolveInteractiveQuizData = async (timeline, datas, validationUrl2) => {
   const host = timeline.ownerDocument.location.origin;
-  const datas = structuredClone(quizObjects.flatMap(({ datas }) => datas));
 
   /** @param {unknown} error */
   const showAnswerFailure = async (error) => {
     const snapshot = {
       timelineId: timeline.id,
-      validationUrl2: component.validationUrl2,
-      objects: quizObjects,
+      validationUrl2,
       quizDatas: datas,
       error: error instanceof Error ? error.message : String(error),
     };
@@ -175,7 +157,7 @@ const getInteractiveQuizData = async (timeline) => {
 
     try {
       quizData.answerContent = await resolveInteractiveQuizAnswer(
-        component.validationUrl2,
+        validationUrl2,
         quizData,
         host,
       );
@@ -195,28 +177,6 @@ const getInteractiveQuizData = async (timeline) => {
   }
 
   return datas;
-};
-
-/**
- * @param {HTMLElement} timeline
- * @param {HTMLVideoElement} videoEl
- */
-const observeInteractiveQuiz = (timeline, videoEl) => {
-  return new Promise((resolve) => {
-    const observer = new MutationObserver(check);
-
-    function check() {
-      const quizRoot = timeline.querySelector(SELECTORS.video.quizClass);
-      if (!quizRoot && !videoEl.ended) return;
-      observer.disconnect();
-      videoEl.removeEventListener("ended", check);
-      resolve(quizRoot);
-    }
-
-    observer.observe(timeline, { childList: true, subtree: true });
-    videoEl.addEventListener("ended", check, { once: true });
-    check();
-  });
 };
 
 /**
@@ -322,28 +282,32 @@ const submitInteractiveQuiz = async (quizRoot) => {
 };
 
 /**
- * 读取 Ext 时间轴题目，监听题目出现，逐组填写并提交，直到末题或视频结束。
- * @param {Document} taskDoc 视频任务点文档。
+ * 解析时间轴题目答案，监听题目出现，逐组填写并提交，直到末题或视频结束。
+ * @param {HTMLElement} timeline 时间轴节点。
  * @param {HTMLVideoElement} videoEl 视频控件。
+ * @param {QuizData[]} quizDatas 时间轴提取的互动题。
+ * @param {string} validationUrl2 页面提供的验证地址。
  * @returns {Promise<void>}
  */
-export const handleInteractiveQuiz = async (taskDoc, videoEl) => {
-  const timeline = await wait.element(
-    null,
-    SELECTORS.video.timelineClass,
-    taskDoc,
-  );
-  const quizDatas = await getInteractiveQuizData(timeline);
+export const handleInteractiveQuiz = async (
+  timeline,
+  videoEl,
+  quizDatas,
+  validationUrl2,
+) => {
   console.info(
     quizDatas.length
       ? `视频包含 ${quizDatas.length} 道互动题，开始处理`
       : "视频无互动题",
   );
-  if (!quizDatas.length) return;
+  if (!quizDatas.length || videoEl.ended) return;
+  await resolveInteractiveQuizData(timeline, quizDatas, validationUrl2);
   const lastQuizData = quizDatas[quizDatas.length - 1];
   let lastQuizSubmitted = false;
-  while (!lastQuizSubmitted) {
-    const quizRoot = await observeInteractiveQuiz(timeline, videoEl);
+  while (!lastQuizSubmitted && !videoEl.ended) {
+    const quizRoot = await waitForTimeline(timeline, videoEl, () =>
+      timeline.querySelector(SELECTORS.video.quizClass),
+    );
     if (!quizRoot) break;
     const items = await matchInteractiveQuizItems(quizRoot, quizDatas);
     await fillInteractiveQuizItems(items, quizDatas);

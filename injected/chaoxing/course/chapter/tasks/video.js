@@ -2,11 +2,13 @@ import { config } from "@injected/chaoxing/runtime.js";
 import { confirm } from "@injected/utils/backend.js";
 import { SELECTORS } from "@injected/chaoxing/selectors.js";
 import { handleInteractiveQuiz } from "./interactive.js";
+import { handleVideoAnnotations } from "./annotation.js";
+import { getVideoTimelineData } from "./timeline.js";
 import { muteVideo, applySpeed } from "./media.js";
 import { wait, sleep, assert } from "@injected/utils/async.js";
 
 /**
- * 启动视频，应用静音和倍速配置，并处理视频互动题。
+ * 启动视频，应用静音和倍速配置，独立处理视频互动题与批注。
  * @param {Document} taskDoc 视频任务点文档。
  * @returns {Promise<void>}
  */
@@ -31,7 +33,12 @@ export const handleVideo = async (taskDoc) => {
   if (!isStarted) throw new Error("视频多次尝试无法启动播放");
 
   if (config.lockSpeed != null) applySpeed(videoEl, config.lockSpeed);
-  await handleInteractiveQuiz(taskDoc, videoEl);
+  const { timeline, quizDatas, annotationDatas, validationUrl2 } =
+    await getVideoTimelineData(taskDoc);
+  await Promise.all([
+    handleInteractiveQuiz(timeline, videoEl, quizDatas, validationUrl2),
+    handleVideoAnnotations(timeline, videoEl, annotationDatas),
+  ]);
   console.info("Video任务点处理完成");
 
   if (config.debugTaskTypes.includes("Video")) {
