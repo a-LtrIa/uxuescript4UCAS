@@ -4915,6 +4915,7 @@ dependencies = [
  "tauri-plugin-opener",
  "tauri-plugin-process",
  "tauri-plugin-updater",
+ "tauri-runtime-wry",
  "tauri-specta",
  "thiserror 2.0.21",
  "tokio",

@@ -29,6 +29,8 @@ Rust 宿主拥有窗口、配置和共享状态；Vue 界面通过生成的 IPC 
 
 课程页与课程遮罩共享原生位置和尺寸，并与 Vue 的比例布局对齐。调整课程区域时，需同时检查原生几何和 CSS；仅改变其中一侧会破坏覆盖关系。
 
+Windows 主窗口始终保持全屏。Tauri 会把网页退出 HTML 全屏转成父窗口的 `SetFullscreen(false)` 消息；窗口模块通过运行时插件在执行前消费发往 `app` 的这类排队消息，使视频退出全屏时不改变主窗口尺寸。该插件使用不稳定的运行时接口，`tauri-runtime-wry` 固定为 `2.12.1`；升级 Tauri 时需同步复核事件分发与消息拦截位置。
+
 课程仪表盘消费定向发送到 `main` 的进度事件，不独立查询平台完成状态。页面加载完成时先重置状态，课程脚本启动后再持续报告。共用的遮罩组件在各自 WebView 内管理展示与事件。
 
 入口：[窗口与生命周期](../../src-tauri/src/app/window.rs)、[WebView 创建](../../src-tauri/src/app/webview.rs)、[主布局](../../src/layouts/TheMainLayout.vue)、[遮罩交互](../../src/TheMaskManager.vue)。

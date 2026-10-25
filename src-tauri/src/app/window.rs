@@ -1,5 +1,8 @@
 use super::webview;
 
+#[cfg(windows)]
+mod fullscreen;
+
 use crate::config::CONFIG;
 
 use anyhow::Result;
@@ -121,6 +124,9 @@ fn select_monitor_from(monitors: &[tauri::Monitor]) -> &tauri::Monitor {
  */
 pub fn init(app: &mut tauri::App) -> std::result::Result<(), Box<dyn std::error::Error>> {
     log::debug!("开始初始化应用窗口");
+    #[cfg(windows)]
+    app.wry_plugin(fullscreen::Fullscreen);
+
     let monitors = app.available_monitors()?;
 
     let target_monitor = select_monitor_from(&monitors);

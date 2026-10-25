@@ -67,3 +67,5 @@ dotenv = "0.15.0"
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.55"
+# The fullscreen message hook uses the unstable runtime plugin API.
+tauri-runtime-wry = "=2.12.1"
