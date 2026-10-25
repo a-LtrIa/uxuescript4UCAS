@@ -1,6 +1,6 @@
 use super::*;
 use crate::config::llm::{LLMProtocol, LLMProvider};
-use crate::test_support::http::{response, serve};
+use crate::test_support::http::{response, serve, serve_sequence};
 use serde_json::{Value, json};
 
 static CONFIG_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
@@ -169,28 +169,34 @@ async fn preserves_http_status_and_upstream_error_details() {
 #[tokio::test]
 async fn rejects_empty_and_unparseable_answers() {
     let protocol = LLMProtocol::OpenAIChatCompletions;
-    for (body, expected) in [
-        (response(&protocol, json!([])), "实际返回 0 道"),
+    for (body, expected, attempts) in [
+        (
+            response(&protocol, json!([])),
+            "预期 1 题，收到 0 个答案",
+            3,
+        ),
         (
             response(
                 &protocol,
                 json!([{"index":"1", "content":" ", "explanation":""}]),
             ),
             "答案为空",
+            3,
         ),
-        (json!({"choices": []}).to_string(), "无法从"),
+        (json!({"choices": []}).to_string(), "无法从", 1),
         (
             response(&protocol, json!("not an answer array")),
-            "解析答案 JSON 失败",
+            "JSON 解析失败",
+            3,
         ),
     ] {
-        let (url, request) = serve(200, body).await;
+        let (url, requests) = serve_sequence(vec![(200, body); attempts]).await;
         let error = probe(&provider(protocol.clone(), url))
             .await
             .unwrap_err()
             .to_string();
         assert!(error.contains(expected), "{error}");
-        request.await.unwrap();
+        assert_eq!(requests.await.unwrap().len(), attempts);
     }
 }
 

@@ -1,14 +1,19 @@
-use super::{AnswerItem, SYSTEM_PROMPT};
+mod answers;
+mod chat;
+mod gemini;
+mod pool;
+mod responses;
+
+use super::AnswerItem;
 use crate::config::llm::{LLMProtocol, LLMProvider};
 use crate::core::quiz::Question;
-
-use anyhow::Result;
+use answers::AnswerError;
+use anyhow::{Context, Result};
+use pool::{MAX_CONCURRENCY, RequestPool};
 use reqwest::header::{ACCEPT, HeaderMap, HeaderValue};
 use std::sync::Arc;
-use tokio::sync::Semaphore;
 
 const CHUNK_SIZE: usize = 5;
-const MAX_CONCURRENCY: usize = 10;
 
 /// LLM 求解入口分发器
 pub async fn solve(provider: &LLMProvider, questions: Vec<Question>) -> Result<Vec<AnswerItem>> {
@@ -37,7 +42,7 @@ pub async fn solve(provider: &LLMProvider, questions: Vec<Question>) -> Result<V
             HeaderValue::from_static("application/json"),
         )]))
         .build()?;
-    let semaphore = Arc::new(Semaphore::new(MAX_CONCURRENCY));
+    let pool = Arc::new(RequestPool::new());
     let mut handles = Vec::new();
 
     for chunk in questions.chunks(CHUNK_SIZE) {
@@ -45,238 +50,77 @@ pub async fn solve(provider: &LLMProvider, questions: Vec<Question>) -> Result<V
         let provider = provider.clone();
         let model = chosen_model.to_string();
         let chunk = chunk.to_vec();
-        let permit = semaphore.clone().acquire_owned().await?;
+        let pool = pool.clone();
 
         handles.push(tokio::spawn(async move {
-            let res = match provider.protocol {
-                LLMProtocol::OpenAIChatCompletions => {
-                    chat_completions(&client, &provider, &model, &chunk).await
-                }
-                LLMProtocol::OpenAIResponses => responses(&client, &provider, &model, &chunk).await,
-                LLMProtocol::GoogleGemini => gemini(&client, &provider, &model, &chunk).await,
-            };
-            drop(permit);
-            res
+            solve_batch(&client, &provider, &model, &chunk, &pool)
+                .await
+                .with_context(|| {
+                    format!(
+                        "题号 {}–{} 求解失败，未提交答案",
+                        chunk[0].id,
+                        chunk[chunk.len() - 1].id
+                    )
+                })
         }));
     }
 
     let mut all_answers = Vec::with_capacity(questions.len());
+    let mut failures = Vec::new();
     for handle in handles {
-        let chunk_answers = handle.await??;
-        all_answers.extend(chunk_answers);
+        match handle.await? {
+            Ok(answers) => all_answers.extend(answers),
+            Err(error) => failures.push(format!("{error:#}")),
+        }
+    }
+    if !failures.is_empty() {
+        anyhow::bail!(
+            "成功求解 {} 题，失败 {} 批；本次未回填或提交。{}",
+            all_answers.len(),
+            failures.len(),
+            failures.join("；")
+        );
     }
 
     Ok(all_answers)
 }
 
-/// 仅对 HTTP 429 最多重试三次（含首次共四次请求）。
-/// Retry-After 只解析整数秒，缺失或解析失败时依次等待 1、2、4 秒；
-/// 网络发送错误直接返回，其他状态及最终响应交由协议处理函数判断。
-async fn send_with_retry<F>(build_req: F) -> Result<reqwest::Response>
-where
-    F: Fn() -> reqwest::RequestBuilder,
-{
-    const MAX_RETRIES: u32 = 3;
-
-    for retry in 0..MAX_RETRIES {
-        let res = build_req().send().await?;
-
-        if res.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
-            let delay = res
-                .headers()
-                .get("retry-after")
-                .and_then(|h| h.to_str().ok()?.parse().ok())
-                .map(std::time::Duration::from_secs)
-                .unwrap_or_else(|| std::time::Duration::from_millis(1000 * (1 << retry)));
-
-            log::warn!(
-                "触发 API 限流 (429)，将在 {:?} 后进行第 {}/{} 次重试...",
-                delay,
-                retry + 1,
-                MAX_RETRIES
-            );
-            tokio::time::sleep(delay).await;
-            continue;
-        }
-        return Ok(res);
-    }
-
-    Ok(build_req().send().await?)
-}
-
-/// 通用 OpenAI ChatCompletions 接口处理
-async fn chat_completions(
+/// 只重新请求格式错误的批次，已成功批次留在原任务结果中。
+async fn solve_batch(
     client: &reqwest::Client,
     provider: &LLMProvider,
     model: &str,
     questions: &[Question],
+    pool: &RequestPool,
 ) -> Result<Vec<AnswerItem>> {
-    let mut request_body: serde_json::Value =
-        serde_json::from_str(include_str!("./req_body/default.json"))?;
-    request_body["model"] = serde_json::json!(model);
-    request_body["messages"] = serde_json::json!([
-        { "role": "system", "content": SYSTEM_PROMPT },
-        { "role": "user", "content": serde_json::to_string(questions)? }
-    ]);
-
-    if let Some(extra) = &provider.extra_body
-        && let (Some(req_obj), Some(extra_obj)) = (request_body.as_object_mut(), extra.as_object())
-    {
-        for (k, v) in extra_obj {
-            req_obj.insert(k.clone(), v.clone());
+    const MAX_RETRIES: u32 = 2;
+    for attempt in 0..=MAX_RETRIES {
+        let result = match provider.protocol {
+            LLMProtocol::OpenAIChatCompletions => {
+                chat::solve(client, provider, model, questions, pool).await
+            }
+            LLMProtocol::OpenAIResponses => {
+                responses::solve(client, provider, model, questions, pool).await
+            }
+            LLMProtocol::GoogleGemini => {
+                gemini::solve(client, provider, model, questions, pool).await
+            }
+        };
+        match result {
+            Err(error) if error.is::<AnswerError>() && attempt < MAX_RETRIES => {
+                log::warn!(
+                    "题号 {}–{} 的批次{}，重试 {}/{}",
+                    questions[0].id,
+                    questions[questions.len() - 1].id,
+                    error,
+                    attempt + 1,
+                    MAX_RETRIES
+                );
+            }
+            result => return result,
         }
     }
-
-    let response = send_with_retry(|| {
-        let mut req = client.post(&provider.base_url);
-        if let Some(key) = provider.api_key.as_ref().map(|key| key.expose())
-            && !key.trim().is_empty()
-        {
-            req = req.header("Authorization", format!("Bearer {}", key));
-        }
-        req.header("Content-Type", "application/json")
-            .json(&request_body)
-    })
-    .await?;
-
-    if !response.status().is_success() {
-        anyhow::bail!(
-            "{} API 错误 ({}): {}",
-            provider.name,
-            response.status(),
-            response.text().await?
-        );
-    }
-
-    let data: serde_json::Value = response.json().await?;
-    let content = data
-        .pointer("/choices/0/message/content")
-        .or_else(|| data.pointer("/message/content"))
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| {
-            anyhow::anyhow!("无法从 {} 响应提取文本。原始响应: {}", provider.name, data)
-        })?;
-
-    serde_json::from_str(content).map_err(|e| {
-        anyhow::anyhow!(
-            "从 {} 响应解析答案 JSON 失败: {}。原始返回文本: {}",
-            provider.name,
-            e,
-            content
-        )
-    })
-}
-
-/// OpenAI /v1/responses 接口处理
-async fn responses(
-    client: &reqwest::Client,
-    provider: &LLMProvider,
-    model: &str,
-    questions: &[Question],
-) -> Result<Vec<AnswerItem>> {
-    let mut request_body: serde_json::Value =
-        serde_json::from_str(include_str!("./req_body/openai.json"))?;
-    request_body["model"] = serde_json::json!(model);
-    request_body["instructions"] = serde_json::json!(SYSTEM_PROMPT);
-    request_body["input"] = serde_json::json!(serde_json::to_string(questions)?);
-
-    let response = send_with_retry(|| {
-        let mut req = client.post(&provider.base_url);
-        if let Some(key) = provider.api_key.as_ref().map(|key| key.expose())
-            && !key.trim().is_empty()
-        {
-            req = req.header("Authorization", format!("Bearer {}", key));
-        }
-        req.header("Content-Type", "application/json")
-            .json(&request_body)
-    })
-    .await?;
-
-    if !response.status().is_success() {
-        anyhow::bail!(
-            "OpenAI API 错误 ({}): {}",
-            response.status(),
-            response.text().await?
-        );
-    }
-
-    let data: serde_json::Value = response.json().await?;
-    let content = data
-        .pointer("/output/1/content/0/text")
-        .and_then(|v| v.as_str())
-        .or_else(|| {
-            data["output"]
-                .as_array()?
-                .iter()
-                .find(|o| o["type"] == "message")?
-                .pointer("/content/0/text")?
-                .as_str()
-        })
-        .ok_or_else(|| anyhow::anyhow!("无法从 OpenAI 响应提取文本。原始响应: {}", data))?;
-
-    if let Ok(wrapper) = serde_json::from_str::<serde_json::Value>(content)
-        && let Some(answers) = wrapper.get("answers")
-    {
-        return Ok(serde_json::from_value(answers.clone())?);
-    }
-
-    serde_json::from_str::<Vec<AnswerItem>>(content).map_err(|e| {
-        anyhow::anyhow!(
-            "从 OpenAI 响应解析答案 JSON 失败: {}。原始返回文本: {}",
-            e,
-            content
-        )
-    })
-}
-
-/// Google Gemini :generateContent 接口处理
-async fn gemini(
-    client: &reqwest::Client,
-    provider: &LLMProvider,
-    model: &str,
-    questions: &[Question],
-) -> Result<Vec<AnswerItem>> {
-    let mut body: serde_json::Value = serde_json::from_str(include_str!("./req_body/google.json"))?;
-    body["contents"] = serde_json::json!([{
-        "parts": [{ "text": serde_json::to_string(questions)? }]
-    }]);
-    body["systemInstruction"] = serde_json::json!({
-        "parts": [{ "text": SYSTEM_PROMPT }]
-    });
-
-    let url = format!("{}/{}:generateContent", provider.base_url, model);
-    let response = send_with_retry(|| {
-        let mut req = client.post(&url);
-        if let Some(key) = provider.api_key.as_ref().map(|key| key.expose())
-            && !key.trim().is_empty()
-        {
-            req = req.header("x-goog-api-key", key);
-        }
-        req.header("Content-Type", "application/json").json(&body)
-    })
-    .await?;
-
-    if !response.status().is_success() {
-        anyhow::bail!(
-            "Google API 错误 ({}): {}",
-            response.status(),
-            response.text().await?
-        );
-    }
-
-    let data: serde_json::Value = response.json().await?;
-    let content = data
-        .pointer("/candidates/0/content/parts/0/text")
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| anyhow::anyhow!("无法从 Google 响应提取文本。原始响应: {}", data))?;
-
-    serde_json::from_str::<Vec<AnswerItem>>(content).map_err(|e| {
-        anyhow::anyhow!(
-            "从 Google 响应解析答案 JSON 失败: {}。原始返回文本: {}",
-            e,
-            content
-        )
-    })
+    unreachable!("最后一次求解直接返回结果")
 }
 
 #[cfg(test)]
