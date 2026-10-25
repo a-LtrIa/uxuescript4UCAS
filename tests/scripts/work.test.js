@@ -1,8 +1,5 @@
-import { runInNewContext } from "node:vm";
 import { flushPromises } from "@vue/test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import script from "../../src-tauri/src/scripts/work.js?raw";
-
 const stems = [
   "实现中华民族伟大复兴的必由之路是？",
   "邓小平同志为主要代表的中国共产党人如何发展中国特色社会主义？",
@@ -16,7 +13,6 @@ const stems = [
   "我国社会主义所处历史阶段判断的依据是什么？",
   "中国特色社会主义进入新时代的重大意义是什么？",
 ];
-
 function fixture() {
   document.body.innerHTML = `<form id="submitForm">${stems
     .map((stem, i) => {
@@ -39,10 +35,10 @@ function fixture() {
     </div>`;
     })
     .join("")}</form><button id="submit">提交</button>`;
-  for (const option of document.querySelectorAll<HTMLElement>(".answerBg")) {
+  for (const option of document.querySelectorAll(".answerBg")) {
     option.addEventListener("click", () => {
-      const question = option.closest<HTMLElement>(".questionLi")!;
-      const label = option.querySelector("span")!;
+      const question = option.closest(".questionLi");
+      const label = option.querySelector("span");
       const multi = question.getAttribute("typename") === "多选题";
       const selected = multi ? "check_answer_dx" : "check_answer";
       const alreadySelected = label.classList.contains(selected);
@@ -51,46 +47,31 @@ function fixture() {
           .querySelectorAll("span")
           .forEach((node) => node.classList.remove(selected));
       label.classList.toggle(selected, !alreadySelected);
-      question.querySelector<HTMLInputElement>("input")!.value = Array.from(
+      question.querySelector("input").value = Array.from(
         question.querySelectorAll(`.${selected}`),
         (node) => node.getAttribute("data"),
       ).join("");
     });
   }
-  document.querySelector<HTMLElement>(".answerBg span")!.click();
+  /** @type {HTMLElement} */ (document.querySelector(".answerBg span")).click();
 }
-
-type Answer = { index: string; content: string };
-type SaveOptions = {
-  silentSuccess: boolean;
-  success(): void;
-  failure(data: { msg: string }): void;
-};
-
-function setup(
-  options: {
-    backend?: boolean;
-    start?: boolean;
-    answers?: Answer[];
-    solveError?: string;
-    editorReady?: boolean;
-  } = {},
-) {
+/** @param {{start?: boolean, editorReady?: boolean, solveError?: string, backend?: boolean, answers?: {index: string, content: string}[]}} options */
+async function setup(options = {}) {
   fixture();
   const nativeConfirm = vi.fn(() => true);
   const confirm = vi.fn(async () => options.start ?? true);
-  const saveWork = vi.fn<(options: SaveOptions) => void>();
+  const saveWork = vi.fn();
   const editor = { isReady: options.editorReady ?? true, setContent: vi.fn() };
-  const invoke = vi.fn(async (command: string) => {
+  const invoke = vi.fn().mockImplementation(async (command) => {
     if (command === "options") return { switchingCd: null };
     if (command === "confirm") return confirm();
-    if (command === "solve_homework") {
+    if (command === "solve_questions") {
       if (options.solveError) throw new Error(options.solveError);
       return (
         options.answers ??
         stems
           .map((_, i) => ({
-            index: String(406063260 + i),
+            index: String(i + 1),
             content: i < 8 ? "B" : i < 10 ? "AC" : "新时代的重大意义。",
           }))
           .reverse()
@@ -99,41 +80,29 @@ function setup(
     throw new Error(`Unexpected command: ${command}`);
   });
   const submit = vi.fn();
-  document.querySelector("#submit")!.addEventListener("click", submit);
-  const context = {
-    window: {
-      __TAURI_INTERNALS__: options.backend === false ? undefined : { invoke },
-      confirm: nativeConfirm,
-      setTimeout: window.setTimeout.bind(window),
-      UE: { getEditor: vi.fn(() => editor) },
-      saveWork,
-    },
-    document,
-    performance,
-    console: { info: vi.fn(), error: vi.fn() },
-    Error,
-    run: undefined as Promise<void> | undefined,
-  };
-  runInNewContext(
-    script.replace("  main();", "  globalThis.run = main();"),
-    context,
+  document.querySelector("#submit").addEventListener("click", submit);
+  vi.resetModules();
+  vi.stubGlobal(
+    "__TAURI_INTERNALS__",
+    options.backend === false ? undefined : { invoke },
   );
-  return {
-    ...context,
-    invoke,
-    confirm,
-    nativeConfirm,
-    saveWork,
-    editor,
-    submit,
-  };
+  vi.stubGlobal("UE", { getEditor: vi.fn(() => editor) });
+  vi.stubGlobal("saveWork", saveWork);
+  vi.spyOn(window, "confirm").mockImplementation(nativeConfirm);
+  vi.spyOn(console, "info").mockImplementation(() => {});
+  vi.spyOn(console, "error").mockImplementation(() => {});
+  const { main } = await import("@injected/chaoxing/work.js");
+  const run = main();
+  return { run, invoke, confirm, nativeConfirm, saveWork, editor, submit };
 }
-
-afterEach(() => vi.useRealTimers());
-
+afterEach(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 describe("homework takeover", () => {
   it("prompts and exits without a backend", async () => {
-    const page = setup({ backend: false });
+    const page = await setup({ backend: false });
     await page.run;
     expect(page.nativeConfirm).toHaveBeenCalledWith(
       "未检测到后端，无法自动答题。",
@@ -141,12 +110,13 @@ describe("homework takeover", () => {
     expect(page.invoke).not.toHaveBeenCalled();
     expect(page.saveWork).not.toHaveBeenCalled();
     expect(
-      document.querySelector<HTMLInputElement>("#answer406063260")!.value,
+      /** @type {HTMLInputElement} */ (
+        document.querySelector("#answer406063260")
+      ).value,
     ).toBe("A");
   });
-
   it("stops when the start confirmation is cancelled", async () => {
-    const page = setup({ start: false });
+    const page = await setup({ start: false });
     await page.run;
     expect(page.invoke.mock.calls.map(([command]) => command)).toEqual([
       "options",
@@ -154,34 +124,36 @@ describe("homework takeover", () => {
     ]);
     expect(page.saveWork).not.toHaveBeenCalled();
   });
-
-  it("extracts 11 questions, fills by ID, and waits for successful saving before the end confirmation", async () => {
-    const page = setup();
+  it("extracts 11 questions, matches answers by displayed number, and waits for successful saving before the end confirmation", async () => {
+    const page = await setup();
     await flushPromises();
     const call = page.invoke.mock.calls.find(
-      ([command]) => command === "solve_homework",
-    )!;
-    const questions = (
-      call as unknown as [string, { questions: Record<string, unknown>[] }]
-    )[1].questions;
+      ([command]) => command === "solve_questions",
+    );
+    const { questions, font } = call[1].payload;
+    expect(font).toBeNull();
     expect(questions).toHaveLength(11);
     expect(questions[0]).toEqual({
-      题号: "406063260",
-      题型: "单选题",
-      题干: stems[0],
-      选项: ["A 选项A", "B 选项B", "C 选项C", "D 选项D"],
+      id: "1",
+      kind: "单选题",
+      stem: stems[0],
+      options: ["A 选项A", "B 选项B", "C 选项C", "D 选项D"],
     });
     expect(questions[10]).toEqual({
-      题号: "406063270",
-      题型: "简答题",
-      题干: stems[10],
-      选项: [],
+      id: "11",
+      kind: "简答题",
+      stem: stems[10],
+      options: [],
     });
     expect(
-      document.querySelector<HTMLInputElement>("#answer406063260")!.value,
+      /** @type {HTMLInputElement} */ (
+        document.querySelector("#answer406063260")
+      ).value,
     ).toBe("B");
     expect(
-      document.querySelector<HTMLInputElement>("#answer406063268")!.value,
+      /** @type {HTMLInputElement} */ (
+        document.querySelector("#answer406063268")
+      ).value,
     ).toBe("AC");
     expect(page.editor.setContent).toHaveBeenCalledWith("新时代的重大意义。");
     expect(page.saveWork).toHaveBeenCalledOnce();
@@ -194,10 +166,9 @@ describe("homework takeover", () => {
     });
     expect(page.submit).not.toHaveBeenCalled();
   });
-
   it("waits for UEditor readiness", async () => {
     vi.useFakeTimers();
-    const page = setup({ editorReady: false });
+    const page = await setup({ editorReady: false });
     await flushPromises();
     expect(page.saveWork).not.toHaveBeenCalled();
     page.editor.isReady = true;
@@ -206,9 +177,8 @@ describe("homework takeover", () => {
     page.saveWork.mock.calls[0][0].success();
     await page.run;
   });
-
   it("reports a failed save without claiming success or submitting", async () => {
-    const page = setup();
+    const page = await setup();
     await flushPromises();
     page.saveWork.mock.calls[0][0].failure({ msg: "保存失败，请稍后重试" });
     await page.run;
@@ -217,21 +187,20 @@ describe("homework takeover", () => {
     });
     expect(page.submit).not.toHaveBeenCalled();
   });
-
   it.each([
     { solveError: "模型不可用" },
     { answers: [] },
-    { answers: stems.map(() => ({ index: "406063260", content: "A" })) },
+    { answers: stems.map(() => ({ index: "1", content: "A" })) },
     {
       answers: stems.map((_, i) => ({
-        index: String(406063260 + i),
+        index: String(i + 1),
         content: "Z",
       })),
     },
   ])(
     "does not save or submit when solving or applying answers fails: %j",
     async (options) => {
-      const page = setup(options);
+      const page = await setup(options);
       await page.run;
       expect(page.confirm).toHaveBeenCalledTimes(2);
       expect(page.saveWork).not.toHaveBeenCalled();
