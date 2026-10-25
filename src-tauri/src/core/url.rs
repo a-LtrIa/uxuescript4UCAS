@@ -4,6 +4,7 @@
 pub enum Type {
     Course,
     Work,
+    Exam,
     CourseOverview,
     Login,
     MainSpace,
@@ -20,6 +21,9 @@ pub fn classify(url: &tauri::Url) -> Type {
     }
 
     let sub = host.split('.').next().unwrap_or_default();
+    if url.path() == "/exam-ans/exam/test/reVersionTestStartNew" {
+        return Type::Exam;
+    }
     match sub {
         "i" => Type::MainSpace,
         "mooc1" if url.path().starts_with("/mycourse/") => Type::Course,
