@@ -7,7 +7,7 @@ flowchart LR
     UI[本地 Vue 界面与遮罩] <-->|IPC / 定向事件| Host[Rust / Tauri 宿主]
     Host -->|初始化与页面脚本| Course[远程课程 WebView]
     Course -->|配置 / 确认 / 测验 / 进度 IPC| Host
-    Host --> Quiz[题目提取与字体还原]
+    Host --> Quiz[字体还原与题目求解]
     Quiz <-->|模型协议| LLM[外部 LLM / 本地 Ollama]
     Host <-->|加载与保存| Config[用户配置]
     Host <-->|检查 / 下载 / 安装| Update[签名更新服务]
@@ -65,21 +65,27 @@ API Key 的日志格式化会脱敏，配置序列化仍保留明文。读取或
 
 脚本报告的 `finish` 表示执行流程结束，不代表后端独立核验了平台全部任务。视频/PDF 处理还会等待页面的任务完成标记，不能把动作执行完毕与任务点完成混为一谈。
 
-入口：[注入调度](../../src-tauri/src/core/script.rs)、[URL 分类](../../src-tauri/src/core/url.rs)、[核心脚本](../../src-tauri/src/scripts/core.js)、[元数据采集](../../src-tauri/src/scripts/course-list-metadata.js)。
+入口：[注入调度](../../src-tauri/src/core/script.rs)、[URL 分类](../../src-tauri/src/core/url.rs)、[核心脚本](../../injected/chaoxing/course/index.js)、[元数据采集](../../injected/chaoxing/course-list-metadata.js)。
 
-独立作业页使用 [work.js](../../src-tauri/src/scripts/work.js)：在超星域名校验后，按 `mooc1-api` 子域和 `/mooc-ans/mooc2/work/dowork` 路径识别并注入。脚本通过开始确认后，从页面提取单选、多选和简答题，填写答案并调用页面原有暂存流程；收到暂存成功回调后显示结束确认，不自动提交。无 Tauri 后端时显示原生确认提示后退出。
+独立作业页使用 [work.js](../../injected/chaoxing/work.js)：在超星域名校验后，按 `mooc1-api` 子域和 `/mooc-ans/mooc2/work/dowork` 路径识别并注入。脚本通过开始确认后，从页面提取单选、多选和简答题，填写答案并调用页面原有暂存流程；收到暂存成功回调后显示结束确认，不自动提交。无 Tauri 后端时显示原生确认提示后退出。
+
+独立考试页使用 [exam.js](../../injected/chaoxing/exam.js)：在超星域名校验后，按 `/exam-ans/exam/test/reVersionTestStartNew` 路径注入。用户确认后，先从第一题按答题卡顺序采集整卷，汇总求解后回到第一题，再按显示题号匹配答案，填写单选、多选、判断、填空、简答和连线题。其他未支持题型保留原答案，结束时列出需人工处理的题号。连线题向模型提供两组文字及显示编号、字母，答案使用 `1:G;2:A` 格式；前端按文字映射当前页面的内部标识，再点击下拉选项，由页面选择事件维护答案。
+
+考试跨页进度通过 `sessionStorage` 按考试及答卷 ID 隔离，存储采集或填写策略、当前题号、题目、答案及首次加载的必要配置。每个页面依次初始化、执行和结束：初始化恢复进度与配置，执行当前题的采集或填写，结束时推进题号；采集末题后等待整卷求解，再切换填写并回到首题。刷新当前题时继续存储的步骤，手动偏离存储题号直接报错，不自动纠正导航。翻页调用页面原有 `getTheQuestionByStart`，保留其暂存及签名导航流程；最后一题调用 `submitForm(true, false, callback)`，收到回调后清理进度并提示人工交卷。失败停止当前流程并报告策略和题号。仅支持可自由回看的普通考试，保留平台倒计时和到时提交行为。
 
 ## 测验与模型
 
-课程脚本提交题目 HTML；Rust 提取题目、按字形路径还原混淆文字，再按配置的模型协议分批请求，答案返回课程页面填入和提交。开启人工核验时，脚本在提交前等待用户确认。字体映射针对字形，不是整个字体文件的哈希；未匹配字符保留原样。
+章节测验、作业和考试共用前端题目提取器，通过选择器配置适配题号、题型、题干和选项的位置。整页题目直接组成列表，考试逐页累积后提交；分页方式和平台内部 ID 不进入求解协议。加密字体从页面内嵌样式读取为字节数组。
 
-作业脚本通过 `solve_homework` 提交结构化题目列表，命令获取当前模型配置后直接调用同一模型分发器，跳过 HTML 提取和字体还原。原章节测验的 `solve_quiz` 链路保持独立。
+题目从 JS 提取、IPC、Rust 到模型输入统一使用 `id / kind / stem / options` 字段；`id` 表示页面显示题号。模型答案使用 `index / explanation / content`，`index` 对应输入的 `id`，不在链路中转换中英文字段。
+
+三个入口统一调用 `solve_questions(payload)`，请求结构为 `QuestionPayload { questions: Vec<Question>, font: Option<Vec<u8>> }`。Rust 有字体时按字形路径还原文字，无字体时直接使用题目列表，再按配置的模型协议分批求解；生产入口不解析整页 HTML。字体映射针对字形，不是整个字体文件的哈希；未匹配字符保留原样。章节测验开启人工核验时，在提交前等待用户确认；独立作业和考试仍仅暂存。
 
 提供商配置是数据，协议分发负责请求与响应处理。后端支持的协议范围与配置界面允许编辑的范围不同，不能由后端类型推断 UI 已提供全部入口。
 
 分发器限制批次并发，按批次创建顺序汇总结果。任一批次失败会使整个调用返回错误，不返回部分成功答案；当前自动重试针对 HTTP 429，不覆盖网络错误、其他错误状态或答案解析失败。
 
-入口：[测验处理](../../src-tauri/src/core/quiz.rs)、[协议分发](../../src-tauri/src/core/quiz/llm/dispatcher.rs)、[供应商交互](../../src/composables/useLLMProviders.ts)。
+入口：[前端提取](../../injected/chaoxing/questions/extract.js)、[请求结构](../../src-tauri/src/core/quiz/payload.rs)、[测验处理](../../src-tauri/src/core/quiz.rs)、[协议分发](../../src-tauri/src/core/quiz/llm/dispatcher.rs)、[供应商交互](../../src/composables/useLLMProviders.ts)。
 
 ## 更新与分发
 
