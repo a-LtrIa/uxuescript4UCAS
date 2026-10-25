@@ -14,6 +14,11 @@
 
 ## 测试与提交
 
+**提交使用 `git cz`；缺少工具时暂停提交并询问用户是否安装。**
+
+- 2026-10-25：Agent 在沙箱内未找到 `git cz` 时改用手写 Conventional Commits 信息完成提交，用户随后明确要求所有提交以 cz 为准。Agent 又将命令不可见误判为未安装；经用户指出与 pnpm 类似，在正常用户环境确认已有 `C:\Users\UNRAOUS\AppData\Roaming\npm\git-cz.cmd`。规则已写入 [AGENTS.md](AGENTS.md#commits)：先核对正常用户环境与已有安装路径；确认确实缺少工具后才暂停询问安装，不得自行安装或以手写提交替代。
+- 出现：1 次（2026-10-25）。
+
 **生成产物的自动重编译须验证文件监听与 Cargo 依赖检查两段链路。**
 
 - 2026-10-25：文档称注入脚本打包会触发 Rust 重编译，但 Tauri 额外监听目录 `dist/scripts/` 被 `.gitignore` 的 `dist` 规则过滤，实际应用没有重启。`rerun-if-changed` 仅在 Cargo 已运行时生效；添加 `.taurignore` 放行后，用本机 Tauri CLI 的独立临时项目确认产物修改触发重新运行。

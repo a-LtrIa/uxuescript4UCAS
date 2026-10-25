@@ -10,6 +10,12 @@
 - When a question calls for a conclusion, lead with a clear answer and take a definite position. Make the best judgment supported by the available evidence; be willing to be wrong, then acknowledge and correct mistakes directly. Do not evade conclusions through excessive caveats, irrelevant theoretical exceptions, or presenting both sides without choosing. If essential evidence is missing, identify it and still state the best-supported current judgment without inventing facts.
 - User and system instructions take precedence over this file and the linked engineering guidance.
 
+## Commits
+
+- All commits must use `git cz`; its configured workflow is the authority for commit messages.
+- Before concluding that `git cz` is unavailable, check the normal user shell and existing user-level installation paths. An Agent sandbox or PATH failure does not establish that the tool is not installed; use the existing installation through an authorized execution context when available.
+- If `git cz` is unavailable, pause committing and ask the user whether to install it. Do not install it without approval or substitute a manually formatted `git commit`.
+
 ## Read the Relevant Engineering Guidance
 
 Before changing code, organizing commits, or preparing a release, read the relevant entries in [`LESSONS.md`](LESSONS.md). It records verified AI collaboration mistakes and the rules that would have prevented them; update it when a correction exposes a new recurring risk.
