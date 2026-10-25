@@ -37,6 +37,14 @@ jobs:
         with:
           node-version-file: .node-version
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12.3.4
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
       - name: Validate release version
         run: |
           VERSION="$(node --input-type=module -e 'import fs from "node:fs"; console.log(JSON.parse(fs.readFileSync("config/build.json", "utf8")).version)')"

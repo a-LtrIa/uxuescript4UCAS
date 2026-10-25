@@ -5,23 +5,33 @@ import { resolve } from "node:path";
 import { Script } from "node:vm";
 import { expect, it } from "vitest";
 
-it("packages the original core and a versioned, self-contained userscript", () => {
+it("packages the bundled core and a versioned, self-contained userscript", () => {
   const output = mkdtempSync(resolve(tmpdir(), "uxs-scripts-"));
   try {
     execFileSync(process.execPath, ["scripts/build-scripts.mjs", output]);
     const config = JSON.parse(readFileSync("config/build.json", "utf8"));
-    const source = readFileSync("src-tauri/src/scripts/core.js");
-    expect(readdirSync(output).sort()).toEqual(["core.js", "uxuescript.user.js"]);
+    const source = readFileSync("dist/scripts/core.js");
+    const entries = Object.keys(JSON.parse(readFileSync("injected/entries.json", "utf8")))
+      .map((name) => `${name}.js`);
+    expect(readdirSync(output).sort()).toEqual(
+      [...entries, "uxuescript.user.js"].sort(),
+    );
     expect(readFileSync(resolve(output, "core.js"))).toEqual(source);
-    const userscript = readFileSync(resolve(output, "uxuescript.user.js"), "utf8");
-    const [header, body] = userscript.split("// ==/UserScript==\n\n");
+    const userscript = readFileSync(
+      resolve(output, "uxuescript.user.js"),
+      "utf8",
+    );
+    const [header, body] = userscript.split("// ==/UserScript==\n");
     expect(body).toBe(source.toString("utf8"));
-    expect(header).toContain(`// @version      ${config.version}\n`);
-    expect(header).toContain("// @match        *://mooc1.chaoxing.com/mycourse/studentstudy*\n");
-    expect(header).toContain("// @run-at       document-idle\n");
-    expect(header).toContain("// @noframes\n");
-    expect(header).toContain("// @grant        none\n");
-    expect(header).toContain("// @downloadURL  https://github.com/unraous/uxuescript/releases/latest/download/uxuescript.user.js\n");
+    for (const line of [
+      `// @version      ${config.version}`,
+      "// @match        *://mooc1.chaoxing.com/mycourse/studentstudy*",
+      "// @run-at       document-idle",
+      "// @noframes",
+      "// @grant        none",
+      "// @downloadURL  https://github.com/unraous/uxuescript/releases/latest/download/uxuescript.user.js",
+    ])
+      expect(header).toContain(`${line}\n`);
     expect(() => new Script(userscript)).not.toThrow();
   } finally {
     rmSync(output, { recursive: true, force: true });

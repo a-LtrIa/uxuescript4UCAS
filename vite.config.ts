@@ -1,6 +1,7 @@
 import { defineConfig } from "vitest/config";
 import vue from "@vitejs/plugin-vue";
 import svgLoader from "vite-svg-loader";
+import { scriptAliases } from "./scripts/script-aliases.mjs";
 import { fileURLToPath } from 'node:url'
 
 const host = process.env.TAURI_DEV_HOST;
@@ -11,6 +12,7 @@ export default defineConfig(async () => ({
 
   resolve: {
     alias: {
+      ...scriptAliases,
       '@': fileURLToPath(new URL('./src', import.meta.url))
     }
   },
@@ -46,7 +48,7 @@ export default defineConfig(async () => ({
     },
   },
   test: {
-    include: ["tests/**/*.test.{ts,mjs}"],
+    include: ["tests/**/*.test.{js,ts,mjs}"],
     environment: "jsdom",
     setupFiles: ["./tests/setup.ts"],
     clearMocks: true,

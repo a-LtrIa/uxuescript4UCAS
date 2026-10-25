@@ -30,7 +30,7 @@ beforeAll(() => {
     "src-tauri/src/bin/sync-bindings.rs",
     "src-tauri/tauri.conf.json",
     "src-tauri/windows/fragments/updater-marker.wxs",
-    "src-tauri/src/scripts/core.js",
+    "injected/chaoxing/course/index.js",
     "tests/updater/build.mjs",
     "Cargo.lock",
   ]) {
@@ -75,7 +75,7 @@ it("synchronizes one version into Cargo, package and Tauri", () => {
   });
   const check = spawnSync(process.execPath, [
     "--check",
-    join(output, "src-tauri/src/scripts/core.js"),
+    join(output, "injected/chaoxing/course/index.js"),
   ]);
   expect(check.status).toBe(0);
 });

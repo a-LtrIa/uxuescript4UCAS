@@ -1,11 +1,17 @@
-import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { build } from "vite";
+import { format } from "prettier";
+import { scriptAliases } from "./script-aliases.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const config = JSON.parse(readFileSync(resolve(root, "config/build.json"), "utf8"));
-const output = resolve(root, process.argv[2] ?? "dist/scripts");
-const source = resolve(root, "src-tauri/src/scripts/core.js");
+const config = /** @type {typeof import("../config/build.json")} */ (
+  JSON.parse(readFileSync(resolve(root, "config/build.json"), "utf8"))
+);
+const entries = /** @type {typeof import("../injected/entries.json")} */ (
+  JSON.parse(readFileSync(resolve(root, "injected/entries.json"), "utf8"))
+);
 const homepage = "https://github.com/unraous/uxuescript";
 const download = `${homepage}/releases/latest/download/uxuescript.user.js`;
 
@@ -28,10 +34,92 @@ const metadata = `// ==UserScript==
 
 `;
 
-mkdirSync(output, { recursive: true });
-copyFileSync(source, resolve(output, "core.js"));
-writeFileSync(
-  resolve(output, "uxuescript.user.js"),
-  metadata + readFileSync(source, "utf8"),
-);
-console.log(`Browser scripts ${config.version}: ${output}`);
+export async function buildScripts({
+  output = resolve(root, "dist/scripts"),
+  watch = false,
+} = {}) {
+  for (const [name, source] of Object.entries(entries)) {
+    const entry = `${name}.js`;
+    const virtualEntry = "\0uxs:entry";
+    const modulePath = resolve(root, "injected", source).replaceAll("\\", "/");
+    /** @type {Array<{format: "iife", name: string, entryFileNames: string, banner?: string}>} */
+    const outputs = [
+      {
+        format: /** @type {const} */ ("iife"),
+        name: "uXueScript",
+        entryFileNames: entry,
+      },
+    ];
+    if (entry === "core.js") {
+      outputs.push({
+        ...outputs[0],
+        entryFileNames: "uxuescript.user.js",
+        banner: metadata,
+      });
+    }
+    const result = await build({
+      configFile: false,
+      publicDir: false,
+      resolve: { alias: scriptAliases },
+      plugins: [
+        {
+          name: "injected-entry",
+          resolveId(id) {
+            if (id === "virtual:uxs-entry") return virtualEntry;
+          },
+          load(id) {
+            if (id === virtualEntry) {
+              return `import { main } from ${JSON.stringify(modulePath)};\nmain();`;
+            }
+          },
+        },
+        {
+          name: "readable-injected-scripts",
+          async generateBundle(_options, bundle) {
+            for (const chunk of Object.values(bundle)) {
+              if (chunk.type !== "chunk") continue;
+              chunk.code = await format(chunk.code, {
+                parser: "babel",
+                tabWidth: 2,
+                useTabs: false,
+              });
+            }
+          },
+        },
+      ],
+      build: {
+        outDir: output,
+        emptyOutDir: false,
+        target: "esnext",
+        minify: false,
+        reportCompressedSize: false,
+        watch: watch ? {} : null,
+        rolldownOptions: { input: "virtual:uxs-entry", output: outputs },
+      },
+    });
+    if (watch) {
+      await new Promise((resolve, reject) =>
+        /** @type {Extract<Awaited<ReturnType<typeof build>>, { on: unknown }>} */ (
+          result
+        ).on("event", (event) => {
+          if (event.code === "ERROR") reject(event.error);
+          if (event.code === "END") resolve();
+        }),
+      );
+    }
+  }
+}
+
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(resolve(process.argv[1])).href
+) {
+  await buildScripts({
+    output: resolve(
+      root,
+      process.argv.slice(2).find((arg) => !arg.startsWith("--")) ??
+        "dist/scripts",
+    ),
+    watch: process.argv.includes("--watch"),
+  });
+}
