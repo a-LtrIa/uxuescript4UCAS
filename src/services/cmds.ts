@@ -6,7 +6,7 @@ import { invoke as __TAURI_INVOKE } from "@tauri-apps/api/core";
 export const commands = {
 	/**  用固定简答题检查当前 API 和模型，成功返回 ok，失败返回具体错误字符串。 */
 	healthy: () => __TAURI_INVOKE<string>("healthy"),
-	solveQuestions: (payload: QuestionPayload) => __TAURI_INVOKE<AnswerItem[]>("solve_questions", { payload }),
+	solveQuestions: (payload: QuestionPayload_Deserialize) => __TAURI_INVOKE<AnswerItem[]>("solve_questions", { payload }),
 	insertCourseMetaMap: (courseId: string, metadata: CourseMetadata) => __TAURI_INVOKE<void>("insert_course_meta_map", { courseId, metadata }),
 	queryCourseMeta: (courseId: string) => __TAURI_INVOKE<{
 	title: string,
@@ -137,18 +137,44 @@ export type PathsConfig = {
 	files?: { [key in string]: string },
 };
 
-export type Question = {
+export type Question = Question_Serialize | Question_Deserialize;
+
+export type QuestionImage = {
+	marker: string,
+	url: string,
+};
+
+/**  前端采集的题目与可选字体；分页方式和平台内部 ID 不进入求解协议。 */
+export type QuestionPayload = QuestionPayload_Serialize | QuestionPayload_Deserialize;
+
+/**  前端采集的题目与可选字体；分页方式和平台内部 ID 不进入求解协议。 */
+export type QuestionPayload_Deserialize = {
+	questions: Question_Deserialize[],
+	font: number[] | null,
+};
+
+/**  前端采集的题目与可选字体；分页方式和平台内部 ID 不进入求解协议。 */
+export type QuestionPayload_Serialize = {
+	questions: Question_Serialize[],
+	font: number[] | null,
+};
+
+export type Question_Deserialize = {
 	/**  页面显示题号，不是平台内部题目 ID。 */
 	id: string,
 	kind: string,
 	stem: string,
 	options: string[],
+	/**  图片地址只用于后端加载媒体；模型文本通过题干中的占位符引用图片。 */
+	images?: QuestionImage[],
 };
 
-/**  前端采集的题目与可选字体；分页方式和平台内部 ID 不进入求解协议。 */
-export type QuestionPayload = {
-	questions: Question[],
-	font: number[] | null,
+export type Question_Serialize = {
+	/**  页面显示题号，不是平台内部题目 ID。 */
+	id: string,
+	kind: string,
+	stem: string,
+	options: string[],
 };
 
 export type TabProgressPayload = {

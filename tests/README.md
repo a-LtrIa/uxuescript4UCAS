@@ -41,7 +41,7 @@ cargo test -p uxuescript test_solve_bigmodel -- --ignored --nocapture
 
 ## 增补测试
 
-`tests/fixtures/chaoxing/` 保存用户提供的真实单选、连线题 HTML 节选，去除身份信息及无关页面区域。`tests/scripts/questions.test.js` 检查题目提取和选项点击，尤其覆盖连线题显示编号与内部 `data` 标识不同的情况。样本未包含下拉框处理脚本，因此这些用例不验证页面脚本更新隐藏答案或服务端暂存。
+`tests/fixtures/chaoxing/` 保存用户提供的真实单选、连线题 HTML 节选，去除身份信息及无关页面区域。`tests/scripts/questions.test.js` 检查题目提取和选项点击，尤其覆盖连线题显示编号与内部 `data` 标识不同，以及公式元数据解码和普通图片占位的情况。样本未包含下拉框处理脚本，因此这些用例不验证页面脚本更新隐藏答案或服务端暂存。
 
 同一 JS 用例还读取 `src-tauri/tests/assets/course-page/webpage.html.gz`，用章节测验选择器核对题目列表与字体原始字节。Rust 命令测试分别覆盖 `QuestionPayload` 无字体直传和有字体解密后求解；解密测试及求解联测直接读取题目 JSON 与字体样本，不再解析 HTML。
 

@@ -122,6 +122,9 @@ describe("homework takeover", () => {
       "options",
       "confirm",
     ]);
+    expect(page.invoke).toHaveBeenCalledWith("confirm", {
+      message: expect.stringContaining("当前模型支持视觉输入"),
+    });
     expect(page.saveWork).not.toHaveBeenCalled();
   });
   it("extracts 11 questions, matches answers by displayed number, and waits for successful saving before the end confirmation", async () => {
@@ -138,12 +141,14 @@ describe("homework takeover", () => {
       kind: "单选题",
       stem: stems[0],
       options: ["A 选项A", "B 选项B", "C 选项C", "D 选项D"],
+      images: [],
     });
     expect(questions[10]).toEqual({
       id: "11",
       kind: "简答题",
       stem: stems[10],
       options: [],
+      images: [],
     });
     expect(
       /** @type {HTMLInputElement} */ (
@@ -162,7 +167,8 @@ describe("homework takeover", () => {
     page.saveWork.mock.calls[0][0].success();
     await page.run;
     expect(page.invoke).toHaveBeenLastCalledWith("confirm", {
-      message: "答案已填写并暂存，请自行提交。",
+      message:
+        "答案已填写并暂存，请核对答案后自行提交；如有图片题，请确认当前模型具备视觉能力！！",
     });
     expect(page.submit).not.toHaveBeenCalled();
   });

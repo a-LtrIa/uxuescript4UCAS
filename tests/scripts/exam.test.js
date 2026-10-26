@@ -22,6 +22,7 @@ const questions = entries.map((_entry, index) => ({
   kind: "单选题",
   stem: "题干",
   options: ["A 选项"],
+  images: /** @type {{marker: string, url: string}[]} */ ([]),
 }));
 const answers = [
   { index: "1", content: "A", explanation: "" },
@@ -255,5 +256,9 @@ it("runs both passes from storage and fetches configuration only once", async ()
     expect.any(Function),
   );
   expect(backend.confirm).toHaveBeenCalledTimes(2);
+  expect(backend.confirm.mock.calls[0][0]).toContain("当前模型支持视觉输入");
+  expect(backend.confirm.mock.calls[1][0]).toContain(
+    "如有图片题，请确认当前模型具备视觉能力！！",
+  );
   expect(window.sessionStorage.getItem(key)).toBeNull();
 });

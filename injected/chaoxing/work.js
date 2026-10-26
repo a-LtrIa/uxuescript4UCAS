@@ -31,7 +31,9 @@ export const main = async () => {
   try {
     config.switchingCd = (await invoke("options")).switchingCd ?? null;
     if (
-      !(await confirm("是否开始作业答题？答案填写完成后将暂存，不会自动提交。"))
+      !(await confirm(
+        "是否开始作业答题？答案填写完成后将暂存，不会自动提交。\n\n含图片的题目需要当前模型支持视觉输入；否则图片可能被忽略，答案可能不准确。",
+      ))
     )
       return;
     const form = await wait.element(null, SELECTORS.workExam.form, document);
@@ -45,6 +47,6 @@ export const main = async () => {
     return;
   }
   await confirm(
-    `答案已填写并暂存，请自行提交。${skipped.length ? `\n需人工处理的题号：${skipped.join("、")}` : ""}`,
+    `答案已填写并暂存，请核对答案后自行提交；如有图片题，请确认当前模型具备视觉能力！！${skipped.length ? `\n需人工处理的题号：${skipped.join("、")}` : ""}`,
   );
 };

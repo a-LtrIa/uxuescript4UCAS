@@ -57,7 +57,7 @@ export const handleQuiz = async (taskDoc) => {
   if (config.quizReview) {
     while (
       !(await confirm(
-        "答案已填写完成，请人工核验后确认是否提交。\n\nYes：立即提交当前答案。\nNo：暂不提交，留出 30 秒检查或修改答案，之后再次弹出本提示。\n\n如需停止脚本，请点击左上角的刷新按钮或 Home。",
+        "答案已填写完成，请核对答案；如有图片题，请确认当前模型具备视觉能力！！\n\nYes：立即提交当前答案。\nNo：暂不提交，留出 30 秒检查或修改答案，之后再次弹出本提示。\n\n如需停止脚本，请点击左上角的刷新按钮或 Home。",
       ))
     ) {
       await sleep(30000);

@@ -8,6 +8,7 @@ fn strict_answers_validate_ids_content_and_restore_order() {
             kind: "single".into(),
             stem: "Choose A".into(),
             options: vec!["A".into()],
+            images: Vec::new(),
         })
         .collect();
     let answers = parse(r#"{"answers":[{"index":"2","explanation":"","content":"B"},{"index":"1","explanation":"","content":"A"}]}"#, &questions).unwrap();

@@ -89,6 +89,7 @@ describe("manual quiz review", () => {
     expect(message).toContain("No：暂不提交");
     expect(message).toContain("30 秒");
     expect(message).toContain("刷新按钮或 Home");
+    expect(message).toContain("如有图片题，请确认当前模型具备视觉能力！！");
     choose(true);
     await run;
     expect(page.submit).toHaveBeenCalledOnce();

@@ -82,6 +82,7 @@ pub fn decrypt(payload: QuestionPayload) -> Vec<Question> {
                     .into_iter()
                     .map(|opt| map(&opt, &font_map))
                     .collect(),
+                images: q.images,
             })
             .collect()
     } else {

@@ -1,4 +1,4 @@
-use super::{answers::parse, pool::RequestPool};
+use super::{answers::parse, media::Image, pool::RequestPool};
 use crate::config::llm::LLMProvider;
 use crate::core::quiz::{
     Question,
@@ -12,14 +12,32 @@ pub(super) async fn solve(
     provider: &LLMProvider,
     model: &str,
     questions: &[Question],
+    images: &[Image],
     pool: &RequestPool,
 ) -> Result<Vec<AnswerItem>> {
     let mut request_body: serde_json::Value =
         serde_json::from_str(include_str!("../req_body/default.json"))?;
     request_body["model"] = serde_json::json!(model);
+    let question_text = serde_json::to_string(questions)?;
+    let user_content = if images.is_empty() {
+        serde_json::json!(question_text)
+    } else {
+        let mut content = vec![serde_json::json!({ "type": "text", "text": question_text })];
+        for image in images {
+            content.push(serde_json::json!({
+                "type": "text",
+                "text": format!("题号 {} 的 [{}]", image.question_id, image.marker)
+            }));
+            content.push(serde_json::json!({
+                "type": "image_url",
+                "image_url": { "url": image.data_url() }
+            }));
+        }
+        serde_json::json!(content)
+    };
     request_body["messages"] = serde_json::json!([
         { "role": "system", "content": SYSTEM_PROMPT },
-        { "role": "user", "content": serde_json::to_string(questions)? }
+        { "role": "user", "content": user_content }
     ]);
 
     if let Some(extra) = &provider.extra_body

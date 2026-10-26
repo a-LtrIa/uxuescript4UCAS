@@ -17,13 +17,15 @@ export const main = async () => {
   try {
     if (window.location.pathname.endsWith("/mooc2/exam/preview")) {
       if (
-        !(await confirm("是否开始整卷答题？填写完成后请检查并自行保存、交卷。"))
+        !(await confirm(
+          "是否开始整卷答题？填写完成后请检查并自行保存、交卷。\n\n含图片的题目需要当前模型支持视觉输入；否则图片可能被忽略，答案可能不准确。",
+        ))
       )
         return;
       await config.loadFromBackend();
       const skipped = await answerPage(document, SELECTORS.examPreview);
       await confirm(
-        `答案已填写，请检查并自行保存、交卷。${skipped.length ? `\n需人工处理的题号：${skipped.join("、")}` : ""}`,
+        `答案已填写，请核对答案并自行保存、交卷；如有图片题，请确认当前模型具备视觉能力！！${skipped.length ? `\n需人工处理的题号：${skipped.join("、")}` : ""}`,
       );
     } else if (
       document

@@ -33,6 +33,7 @@ pub async fn healthy() -> CommandsResult<String> {
             kind: "简答题".into(),
             stem: "天空为什么是蓝色的？请用一句话回答。".into(),
             options: Vec::new(),
+            images: Vec::new(),
         }],
     )
     .await

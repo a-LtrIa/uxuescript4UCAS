@@ -179,6 +179,7 @@ describe("user-provided Chaoxing exam HTML", () => {
     );
     for (const question of expected) {
       question.kind = question.kind.replace(/[【】]/g, "");
+      question.images = [];
     }
     expect(payload.questions).toEqual(expected);
     expect(payload.font).toEqual(
@@ -194,6 +195,29 @@ describe("user-provided Chaoxing exam HTML", () => {
       kind: "单选题",
       stem: "（尤指苦战后获得的）胜利，成功，成就",
       options: ["A triumph", "B community"],
+      images: [],
+    });
+  });
+
+  it("decodes embedded LaTeX and keeps bitmap positions in the question", () => {
+    const node = document.createElement("div");
+    node.className = "questionLi singleQuesId";
+    node.innerHTML = `
+      <h3 class="mark_name">1. <span class="colorShallow">(单选题)</span>
+        设<img class="ans-latex-moudle" data="%22f%28x%29%3Dx%5E2%22" src="https://p.cldisk.com/formula.png">，则
+      </h3>
+      <div class="stem_answer">
+        <div class="answerBg"><span data="A"></span><div class="answer_p"><img src="https://p.cldisk.com/a.png"></div></div>
+        <div class="answerBg"><span data="B"></span><div class="answer_p">普通文本</div></div>
+      </div>`;
+    document.body.append(node);
+
+    expect(extractQuestion(node, SELECTORS.workExam)).toEqual({
+      id: "1",
+      kind: "单选题",
+      stem: "设 [公式: f(x)=x^2] ，则",
+      options: ["A [图片1]", "B 普通文本"],
+      images: [{ marker: "图片1", url: "https://p.cldisk.com/a.png" }],
     });
   });
 
@@ -224,6 +248,7 @@ describe("user-provided Chaoxing exam HTML", () => {
         "第2组 H over time",
         "第2组 I take delight in doing sth.",
       ],
+      images: [],
     });
     expect(node.querySelector(".mark_name").innerHTML).toBe(originalTitle);
   });

@@ -6,7 +6,7 @@ pub mod llm;
 
 use llm::AnswerItem;
 use mapper::decrypt;
-pub use payload::{Question, QuestionPayload};
+pub use payload::{Question, QuestionImage, QuestionPayload};
 
 use crate::config::CONFIG;
 use anyhow::Result;

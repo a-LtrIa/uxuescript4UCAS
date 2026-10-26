@@ -1,4 +1,4 @@
-use super::{answers::parse, pool::RequestPool};
+use super::{answers::parse, media::Image, pool::RequestPool};
 use crate::config::llm::LLMProvider;
 use crate::core::quiz::{
     Question,
@@ -12,13 +12,21 @@ pub(super) async fn solve(
     provider: &LLMProvider,
     model: &str,
     questions: &[Question],
+    images: &[Image],
     pool: &RequestPool,
 ) -> Result<Vec<AnswerItem>> {
     let mut body: serde_json::Value =
         serde_json::from_str(include_str!("../req_body/google.json"))?;
-    body["contents"] = serde_json::json!([{
-        "parts": [{ "text": serde_json::to_string(questions)? }]
-    }]);
+    let mut parts = vec![serde_json::json!({ "text": serde_json::to_string(questions)? })];
+    for image in images {
+        parts.push(serde_json::json!({
+            "text": format!("题号 {} 的 [{}]", image.question_id, image.marker)
+        }));
+        parts.push(serde_json::json!({
+            "inline_data": { "mime_type": image.mime, "data": image.data }
+        }));
+    }
+    body["contents"] = serde_json::json!([{ "parts": parts }]);
     body["systemInstruction"] = serde_json::json!({
         "parts": [{ "text": SYSTEM_PROMPT }]
     });

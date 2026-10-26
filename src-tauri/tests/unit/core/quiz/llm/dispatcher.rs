@@ -11,6 +11,7 @@ fn questions(count: usize) -> Vec<Question> {
             kind: "single".into(),
             stem: "Choose A".into(),
             options: vec!["A".into()],
+            images: Vec::new(),
         })
         .collect()
 }
@@ -174,6 +175,7 @@ async fn preset_chat_requests_preserve_options_and_read_answer_arrays() {
                 kind: "single".into(),
                 stem: "Choose A".into(),
                 options: vec!["A".into()],
+                images: Vec::new(),
             }],
         )
         .await
@@ -230,6 +232,7 @@ async fn sends_protocol_requests_with_application_headers() {
                 kind: "???".into(),
                 stem: "?? A".into(),
                 options: vec!["A".into()],
+                images: Vec::new(),
             }],
         )
         .await
@@ -267,5 +270,95 @@ async fn sends_protocol_requests_with_application_headers() {
         assert_eq!(answers.len(), 1);
         assert_eq!(answers[0].index, "1");
         assert_eq!(answers[0].content, "A");
+    }
+}
+
+#[tokio::test]
+async fn sends_images_in_each_protocol_native_format() {
+    for protocol in [
+        LLMProtocol::OpenAIChatCompletions,
+        LLMProtocol::OpenAIResponses,
+        LLMProtocol::GoogleGemini,
+    ] {
+        let body = response(
+            &protocol,
+            json!([{"index":"1","explanation":"mock","content":"A"}]),
+        );
+        let (url, request) = serve(200, body).await;
+        let provider = LLMProvider {
+            name: "Image mock".into(),
+            is_custom: true,
+            protocol: protocol.clone(),
+            base_url: url,
+            api_key: None,
+            models: vec!["vision-model".into()],
+            chosen_model: Some(0),
+            extra_body: None,
+        };
+        let input = questions(1);
+        let images = vec![media::Image {
+            question_id: "1".into(),
+            marker: "图片1".into(),
+            mime: "image/png".into(),
+            data: "AQID".into(),
+        }];
+        let pool = RequestPool::new();
+        match protocol {
+            LLMProtocol::OpenAIChatCompletions => {
+                chat::solve(
+                    &reqwest::Client::new(),
+                    &provider,
+                    "vision-model",
+                    &input,
+                    &images,
+                    &pool,
+                )
+                .await
+                .unwrap();
+            }
+            LLMProtocol::OpenAIResponses => {
+                responses::solve(
+                    &reqwest::Client::new(),
+                    &provider,
+                    "vision-model",
+                    &input,
+                    &images,
+                    &pool,
+                )
+                .await
+                .unwrap();
+            }
+            LLMProtocol::GoogleGemini => {
+                gemini::solve(
+                    &reqwest::Client::new(),
+                    &provider,
+                    "vision-model",
+                    &input,
+                    &images,
+                    &pool,
+                )
+                .await
+                .unwrap();
+            }
+        }
+        let body = request.await.unwrap().body;
+        match protocol {
+            LLMProtocol::OpenAIChatCompletions => {
+                let content = body["messages"][1]["content"].as_array().unwrap();
+                assert_eq!(content[1]["text"], "题号 1 的 [图片1]");
+                assert_eq!(content[2]["image_url"]["url"], "data:image/png;base64,AQID");
+            }
+            LLMProtocol::OpenAIResponses => {
+                let content = body["input"][0]["content"].as_array().unwrap();
+                assert_eq!(content[1]["text"], "题号 1 的 [图片1]");
+                assert_eq!(content[2]["image_url"], "data:image/png;base64,AQID");
+            }
+            LLMProtocol::GoogleGemini => {
+                let parts = body["contents"][0]["parts"].as_array().unwrap();
+                assert_eq!(parts[1]["text"], "题号 1 的 [图片1]");
+                assert_eq!(parts[2]["inline_data"]["mime_type"], "image/png");
+                assert_eq!(parts[2]["inline_data"]["data"], "AQID");
+            }
+        }
     }
 }

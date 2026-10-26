@@ -25,12 +25,14 @@ fn test_decrypt_no_font_returns_same_questions() {
         kind: "single".into(),
         stem: "What is 1+1?".into(),
         options: vec!["A. 1".into(), "B. 2".into()],
+        images: Vec::new(),
     };
     let q2 = Question {
         id: "2".into(),
         kind: "multi".into(),
         stem: "Choose colors".into(),
         options: vec!["Red".into(), "Blue".into()],
+        images: Vec::new(),
     };
 
     let questions = vec![q1.clone(), q2.clone()];

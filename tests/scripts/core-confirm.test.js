@@ -28,6 +28,9 @@ describe("course confirmation", () => {
     const page = await setup();
     await page.run;
     expect(page.nativeConfirm).toHaveBeenCalledOnce();
+    expect(page.nativeConfirm).toHaveBeenCalledWith(
+      expect.stringContaining("当前模型支持视觉输入"),
+    );
     expect(window.confirm).toBe(page.nativeConfirm);
   });
 

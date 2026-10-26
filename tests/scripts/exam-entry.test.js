@@ -80,8 +80,20 @@ it("solves the full page once, fills by displayed number and reports unsupported
   expect(backend.invoke).toHaveBeenLastCalledWith("solve_questions", {
     payload: {
       questions: [
-        { id: "1", kind: "单选题", stem: "题干1", options: ["A 选项"] },
-        { id: "2", kind: "多选题", stem: "题干2", options: ["A 选项"] },
+        {
+          id: "1",
+          kind: "单选题",
+          stem: "题干1",
+          options: ["A 选项"],
+          images: [],
+        },
+        {
+          id: "2",
+          kind: "多选题",
+          stem: "题干2",
+          options: ["A 选项"],
+          images: [],
+        },
       ],
       font: null,
     },
@@ -96,7 +108,7 @@ it("solves the full page once, fills by displayed number and reports unsupported
   expect(save).not.toHaveBeenCalled();
   expect(window.sessionStorage.length).toBe(0);
   expect(backend.confirm).toHaveBeenLastCalledWith(
-    "答案已填写，请检查并自行保存、交卷。\n需人工处理的题号：3（排序题）",
+    "答案已填写，请核对答案并自行保存、交卷；如有图片题，请确认当前模型具备视觉能力！！\n需人工处理的题号：3（排序题）",
   );
 });
 
@@ -104,6 +116,9 @@ it("does not solve or fill when preview confirmation is cancelled", async () => 
   setupPreview();
   backend.confirm.mockResolvedValueOnce(false);
   await main();
+  expect(backend.confirm).toHaveBeenCalledWith(
+    expect.stringContaining("当前模型支持视觉输入"),
+  );
   expect(backend.invoke).not.toHaveBeenCalled();
   expect(fillAnswer).not.toHaveBeenCalled();
 });

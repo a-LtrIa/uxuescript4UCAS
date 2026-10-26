@@ -81,7 +81,7 @@ API Key 的日志格式化会脱敏，配置序列化仍保留明文。读取或
 
 章节测验、作业和考试共用前端题目提取器，通过选择器配置适配题号、题型、题干和选项的位置。整页题目直接组成列表，考试逐页累积后提交；分页方式和平台内部 ID 不进入求解协议。加密字体从页面内嵌样式读取为字节数组。
 
-题目从 JS 提取、IPC、Rust 到模型输入统一使用 `id / kind / stem / options` 字段；`id` 表示页面显示题号。模型答案使用 `index / explanation / content`，`index` 对应输入的 `id`，不在链路中转换中英文字段。
+题目从 JS 提取、IPC、Rust 到模型输入统一使用 `id / kind / stem / options / images` 字段；`id` 表示页面显示题号。超星公式图片带有可解析元数据时写入 `stem` 或 `options` 的公式占位文本，其他图片以 `[图片N]` 保留原位置，并由 `images` 提供地址；后端下载后按模型协议发送多模态内容。模型答案使用 `index / explanation / content`，`index` 对应输入的 `id`，不在链路中转换中英文字段。
 
 三个入口统一调用 `solve_questions(payload)`，请求结构为 `QuestionPayload { questions: Vec<Question>, font: Option<Vec<u8>> }`。Rust 有字体时按字形路径还原文字，无字体时直接使用题目列表，再按配置的模型协议分批求解；生产入口不解析整页 HTML。字体映射针对字形，不是整个字体文件的哈希；未匹配字符保留原样。章节测验开启人工核验时，在提交前等待用户确认；独立作业和逐题考试仅暂存，整卷预览考试提示用户自行保存和交卷。
 

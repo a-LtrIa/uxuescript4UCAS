@@ -10,6 +10,7 @@ import { SELECTORS } from "@injected/chaoxing/selectors.js";
  * @property {string} kind 页面题型名称。
  * @property {string} stem 去除题号和分值后的题目文字。
  * @property {string[]} options 显示标识与选项文字；无选项的题型为空数组。
+ * @property {{marker: string, url: string}[]} images 题干和选项中的位图，marker 对应正文占位符。
  */
 
 /**
@@ -36,6 +37,47 @@ import { SELECTORS } from "@injected/chaoxing/selectors.js";
 const text = (node) => node.textContent.replace(/\s+/g, " ").trim();
 
 /**
+ * 超星公式图片会把原始 LaTeX 作为 URI 编码字符串保存在 data 属性中。
+ * @param {Element} image
+ */
+const latex = (image) => {
+  if (!image.classList.contains("ans-latex-moudle")) return null;
+  const encoded = image.getAttribute("data");
+  assert(encoded, "公式图片缺少 LaTeX 数据");
+  const decoded = decodeURIComponent(encoded);
+  const value = decoded.startsWith('"') ? JSON.parse(decoded) : decoded;
+  assert(
+    typeof value === "string" && value.trim(),
+    "公式图片的 LaTeX 数据无效",
+  );
+  return value.trim();
+};
+
+/**
+ * @param {Element} root
+ * @param {{marker: string, url: string}[]} images
+ */
+const content = (root, images) => {
+  const clone = /** @type {Element} */ (root.cloneNode(true));
+  for (const image of clone.querySelectorAll("img")) {
+    const source = latex(image);
+    if (source) {
+      image.replaceWith(` [公式: ${source}] `);
+      continue;
+    }
+    const src = image.getAttribute("src");
+    assert(src, "题目图片缺少地址");
+    const marker = `图片${images.length + 1}`;
+    images.push({
+      marker,
+      url: new URL(src, image.ownerDocument.baseURI).href,
+    });
+    image.replaceWith(` [${marker}] `);
+  }
+  return text(clone);
+};
+
+/**
  * 从页面题型文字识别处理类别。
  * @param {string} titleText
  */
@@ -54,32 +96,45 @@ export const classifyQuestion = (titleText) => {
  * @param {Element} node
  * @param {ExtractionSelectors["choice"]} choice
  * @param {(option: Element, index: number) => string} labelFor
+ * @param {{marker: string, url: string}[]} images
  */
-const readChoices = (node, choice, labelFor) =>
+const readChoices = (node, choice, labelFor, images) =>
   Array.from(node.querySelectorAll(choice.options), (option, index) => {
     const label = labelFor(option, index);
-    return `${label} ${text(option.querySelector(choice.text))}`;
+    const choiceText = /** @type {Element} */ (
+      option.querySelector(choice.text)
+    );
+    return `${label} ${content(choiceText, images)}`;
   });
 
 /**
  * @param {Element} node
  * @param {ExtractionSelectors} selectors
+ * @param {{marker: string, url: string}[]} images
  */
-const extractChoiceOptions = (node, selectors) =>
-  readChoices(node, selectors.choice, (option) =>
-    option.querySelector(selectors.optionLabel).getAttribute("data"),
+const extractChoiceOptions = (node, selectors, images) =>
+  readChoices(
+    node,
+    selectors.choice,
+    (option) =>
+      option.querySelector(selectors.optionLabel).getAttribute("data"),
+    images,
   );
 
 /**
  * @param {Element} node
  * @param {ExtractionSelectors} selectors
+ * @param {{marker: string, url: string}[]} images
  */
-const extractJudgeOptions = (node, selectors) =>
-  readChoices(node, selectors.choice, (_option, index) =>
-    String.fromCharCode(65 + index),
+const extractJudgeOptions = (node, selectors, images) =>
+  readChoices(
+    node,
+    selectors.choice,
+    (_option, index) => String.fromCharCode(65 + index),
+    images,
   );
 
-/** @type {Partial<Record<ReturnType<typeof classifyQuestion>, (node: Element, selectors: ExtractionSelectors) => string[]>>} */
+/** @type {Partial<Record<ReturnType<typeof classifyQuestion>, (node: Element, selectors: ExtractionSelectors, images: {marker: string, url: string}[]) => string[]>>} */
 const optionExtractors = {
   [QuestionType.SingleChoice]: extractChoiceOptions,
   [QuestionType.MultipleChoice]: extractChoiceOptions,
@@ -103,11 +158,15 @@ export const extractQuestion = (node, selectors) => {
   assert(title, "未找到题干");
   title.querySelector(selectors.titleMeta)?.remove();
   const number = text(node.querySelector(selectors.number)).match(/^(\d+)/)[1];
+  /** @type {{marker: string, url: string}[]} */
+  const images = [];
   return {
     id: number,
     kind: kind,
-    stem: text(title).replace(/^\d+\s*[.．、]\s*/, ""),
-    options: optionExtractors[classifyQuestion(kind)]?.(node, selectors) ?? [],
+    stem: content(title, images).replace(/^\d+\s*[.．、]\s*/, ""),
+    options:
+      optionExtractors[classifyQuestion(kind)]?.(node, selectors, images) ?? [],
+    images,
   };
 };
 

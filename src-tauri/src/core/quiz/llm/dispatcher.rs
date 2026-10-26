@@ -1,6 +1,7 @@
 mod answers;
 mod chat;
 mod gemini;
+mod media;
 mod pool;
 mod responses;
 
@@ -94,16 +95,17 @@ async fn solve_batch(
     pool: &RequestPool,
 ) -> Result<Vec<AnswerItem>> {
     const MAX_RETRIES: u32 = 2;
+    let images = media::load(questions).await?;
     for attempt in 0..=MAX_RETRIES {
         let result = match provider.protocol {
             LLMProtocol::OpenAIChatCompletions => {
-                chat::solve(client, provider, model, questions, pool).await
+                chat::solve(client, provider, model, questions, &images, pool).await
             }
             LLMProtocol::OpenAIResponses => {
-                responses::solve(client, provider, model, questions, pool).await
+                responses::solve(client, provider, model, questions, &images, pool).await
             }
             LLMProtocol::GoogleGemini => {
-                gemini::solve(client, provider, model, questions, pool).await
+                gemini::solve(client, provider, model, questions, &images, pool).await
             }
         };
         match result {
