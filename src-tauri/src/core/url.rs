@@ -12,6 +12,13 @@ pub enum Type {
     Unknown,
 }
 
+const EXAM_PATHS: &[&str] = &[
+    "/exam-ans/exam/test/reVersionTestStartNew",
+    "/mooc-ans/exam/test/reVersionTestStartNew",
+    "/exam-ans/mooc2/exam/preview",
+    "/mooc-ans/mooc2/exam/preview",
+];
+
 /// 判定传入 URL 是否属于超星域名并返回其具体分类类型。
 pub fn classify(url: &tauri::Url) -> Type {
     let host = url.host_str().unwrap_or_default();
@@ -21,21 +28,13 @@ pub fn classify(url: &tauri::Url) -> Type {
     }
 
     let sub = host.split('.').next().unwrap_or_default();
-    if matches!(
-        url.path(),
-        "/exam-ans/exam/test/reVersionTestStartNew"
-            | "/mooc-ans/exam/test/reVersionTestStartNew"
-            | "/exam-ans/mooc2/exam/preview"
-            | "/mooc-ans/mooc2/exam/preview"
-    ) {
-        return Type::Exam;
-    }
-    match sub {
-        "i" => Type::MainSpace,
-        "mooc1" if url.path().starts_with("/mycourse/") => Type::Course,
-        "mooc1-api" if url.path() == "/mooc-ans/mooc2/work/dowork" => Type::Work,
-        "mooc2-ans" => Type::CourseOverview,
-        "passport2" if url.path().starts_with("/login") => Type::Login,
+    match (sub, url.path()) {
+        (_, path) if EXAM_PATHS.contains(&path) => Type::Exam,
+        (_, "/mooc-ans/mooc2/work/dowork") => Type::Work,
+        ("i", _) => Type::MainSpace,
+        ("mooc1", path) if path.starts_with("/mycourse/") => Type::Course,
+        ("mooc2-ans", _) => Type::CourseOverview,
+        ("passport2", path) if path.starts_with("/login") => Type::Login,
         _ => Type::Other,
     }
 }

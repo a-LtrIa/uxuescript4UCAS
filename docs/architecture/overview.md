@@ -69,7 +69,7 @@ API Key 的日志格式化会脱敏，配置序列化仍保留明文。读取或
 
 入口：[注入调度](../../src-tauri/src/core/script.rs)、[URL 分类](../../src-tauri/src/core/url.rs)、[核心脚本](../../injected/chaoxing/course.js)、[元数据采集](../../injected/chaoxing/course-list-metadata.js)。
 
-独立作业页使用 [work.js](../../injected/chaoxing/work.js)：在超星域名校验后，按 `mooc1-api` 子域和 `/mooc-ans/mooc2/work/dowork` 路径识别并注入。确认后默认调用共享的 [整页答题流程](../../injected/chaoxing/questions/page.js)，一次提取、求解并按显示题号填写，再调用页面原有暂存流程；收到成功回调后提示自行提交。无 Tauri 后端时提示后退出。
+独立作业页使用 [work.js](../../injected/chaoxing/work.js)：在超星域名校验后，按 `/mooc-ans/mooc2/work/dowork` 精确路径识别并注入，不限定具体子域。确认后默认调用共享的 [整页答题流程](../../injected/chaoxing/questions/page.js)，一次提取、求解并按显示题号填写，再调用页面原有暂存流程；收到成功回调后提示自行提交。无 Tauri 后端时提示后退出。
 
 独立考试页使用 [exam.js](../../injected/chaoxing/exam.js) 分流：普通题目页优先调用平台 `topreview()` 进入 `/mooc2/exam/preview`，预览页确认后与作业共用整页答题流程；页面明确显示“不允许整卷预览”时，使用 [逐题流程](../../injected/chaoxing/exam/paged.js)。URL 分类支持 `/exam-ans` 和 `/mooc-ans` 下的题目及预览路径。分流参考 [OCS 的 cx.ts](https://github.com/ocsjs/ocsjs/blob/5.0/packages/scripts/src/projects/cx.ts)；预览页完成后提示用户自行检查、保存和交卷，不调用未经确认的整卷暂存接口。无 Tauri 后端时提示后退出。
 

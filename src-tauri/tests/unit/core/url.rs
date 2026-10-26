@@ -26,16 +26,22 @@ fn test_classify_urls() {
 }
 
 #[test]
-fn classifies_only_the_supported_homework_origin_and_path() {
+fn classifies_homework_by_chaoxing_domain_and_exact_path() {
     let path = "/mooc-ans/mooc2/work/dowork";
-    let url = format!("https://mooc1-api.chaoxing.com{path}?workId=1&answerId=2");
-    assert_eq!(classify(&url.parse().unwrap()), Type::Work);
+    for origin in [
+        "chaoxing.com",
+        "mooc1.chaoxing.com",
+        "mooc1-api.chaoxing.com",
+    ] {
+        let url = format!("https://{origin}{path}?workId=1&answerId=2");
+        assert_eq!(classify(&url.parse().unwrap()), Type::Work, "{url}");
+    }
     assert!(super::super::script::obtain(Type::Work).is_some());
     for url in [
-        format!("https://mooc1.chaoxing.com{path}"),
         format!("https://mooc1-api.chaoxing.com{path}/extra"),
         "https://mooc1-api.chaoxing.com/mooc-ans/mooc2/work/prompt".into(),
         format!("https://mooc1-api.chaoxing.com.example.com{path}"),
+        format!("https://example.com{path}"),
     ] {
         assert_ne!(classify(&url.parse().unwrap()), Type::Work, "{url}");
     }
