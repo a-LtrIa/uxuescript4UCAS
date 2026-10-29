@@ -1,4 +1,4 @@
-<h1 align="center">uXueScript 2.0</h1>
+<h1 align="center">uXueScript for UCAS Online</h1>
 
 <p align="center">
   <img src="src-tauri/icons/icon.png" width="128" alt="uXueScript Logo">
@@ -30,6 +30,35 @@
 </p>
 
 ---
+
+## 本项目说明
+
+本仓库是面向**国科大在线**的 uXueScript 油猴脚本适配版，基于上游项目 [uXueScript](https://github.com/unraous/uxuescript) 开发。uXueScript 延续了旧版 [uXuexitongJS](https://github.com/unraous/uxuescript/tree/history) 的思路；原项目作者、许可证和主要课程自动化能力均予以保留，新增内容集中在国科大在线页面适配。
+
+本项目目前支持：
+
+- 学习通原有课程页面的视频、音频和 PDF 任务点处理。
+- 国科大在线课程页面 `mooc.mooc.ucas.edu.cn` 的课程目录与章节处理。
+- 国科大在线 PDF 阅读器 `pan.mooc.ucas.edu.cn` 的跨域页面通信和自动翻页。
+- 识别已完成的 PDF 任务点并跳过，完成当前 PDF 后继续进入下一节。
+
+### 工作分工
+
+- **用户完成：** 提出国科大在线支持需求，提供 Edge 中的实际学习页面用于调查，并进行功能测试，反馈已完成 PDF 跳过和章节跳转等实际问题。
+- **GPT 完成：** 根据实际页面结构调整油猴脚本匹配范围，增加国科大课程目录异步等待、章节框架处理和跨域 PDF `postMessage` 握手；补充 PDF 完成状态判断、任务点推进逻辑、回归测试，并重新构建油猴脚本。
+
+### 安装与构建
+
+安装依赖后运行：
+
+```bash
+pnpm install
+pnpm build:scripts
+```
+
+然后将生成的 `dist/scripts/uxuescript.user.js` 导入 Tampermonkey。脚本源码位于 [`injected/`](injected/)，构建和回归测试命令见[开发与构建指南](docs/development/build.md)及[测试说明](tests/README.md)。
+
+本项目仅用于个人学习、软件工程研究和自动化技术交流，请遵守相关平台规则。
 
 uXueScript 是基于 **Rust + Tauri 2 + Vue 3** 开发的学习通自动化辅助客户端，支持课程任务自动推进与 AI 辅助答题。课程页面、配置面板与进度展示集中在一个窗口中，搭配多种配色主题和界面动效，让重复的课程操作也能有个舒服的使用体验。
 

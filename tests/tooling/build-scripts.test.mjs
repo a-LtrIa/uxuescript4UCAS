@@ -38,11 +38,18 @@ it("packages the bundled core and a versioned, self-contained userscript", () =>
     expect(body).toBe(source.toString("utf8"));
     for (const line of [
       `// @version      ${config.version}`,
+      "// @name         uXueScript4ucas",
+      `// @author       ${config.app.author}, altria`,
+      "// @namespace    https://github.com/a-LtrIa/uxuescript4UCAS",
+      "// @homepageURL  https://github.com/a-LtrIa/uxuescript4UCAS",
+      "// @supportURL   https://github.com/a-LtrIa/uxuescript4UCAS/issues",
       "// @match        *://mooc1.chaoxing.com/mycourse/studentstudy*",
+      "// @match        *://mooc.mooc.ucas.edu.cn/mooc-ans/mycourse/studentstudy*",
+      "// @match        *://mooc.mooc.ucas.edu.cn/mooc-ans/screen/file*",
+      "// @match        *://pan.mooc.ucas.edu.cn/screen/v2/file_*",
       "// @run-at       document-idle",
-      "// @noframes",
       "// @grant        none",
-      "// @downloadURL  https://github.com/unraous/uxuescript/releases/latest/download/uxuescript.user.js",
+      "// @downloadURL  https://github.com/a-LtrIa/uxuescript4UCAS/releases/latest/download/uxuescript.user.js",
     ])
       expect(header).toContain(`${line}\n`);
     expect(() => new Script(userscript)).not.toThrow();

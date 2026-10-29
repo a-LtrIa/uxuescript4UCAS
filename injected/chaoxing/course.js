@@ -5,13 +5,48 @@ import {
   totalChapterList,
   handleCourse,
 } from "@injected/chaoxing/course/chapters.js";
+import {
+  handlePDFBridge,
+  handlePDFViewer,
+} from "@injected/chaoxing/course/chapter/tasks/pdf.js";
 import { preserveFocusState } from "@injected/chaoxing/focus.js";
+import { wait } from "@injected/utils/async.js";
+import { SELECTORS } from "@injected/chaoxing/selectors.js";
+
+const isPDFViewer =
+  location.hostname === "pan.mooc.ucas.edu.cn" &&
+  location.pathname.startsWith("/screen/v2/file_");
+const isPDFBridge =
+  location.hostname === "mooc.mooc.ucas.edu.cn" &&
+  location.pathname.startsWith("/mooc-ans/screen/file");
+const isUCASCourse = location.hostname === "mooc.mooc.ucas.edu.cn";
+
+const loadChapterList = async () => {
+  if (isUCASCourse)
+    await wait.elements(
+      null,
+      SELECTORS.courseTree.nodeClass,
+      document,
+      "获取国科大课程列表超时",
+    );
+  return totalChapterList();
+};
 
 /**
  * 加载配置并确认启动，依次处理课程章节，最后报告完成。
  * @returns {Promise<void>}
  */
 export const main = async () => {
+  if (isPDFViewer) {
+    await handlePDFViewer(document);
+    return;
+  }
+  if (isPDFBridge) {
+    handlePDFBridge();
+    return;
+  }
+  if (window.top !== window) return;
+
   await config.loadFromBackend();
 
   const speedInfo =
@@ -42,6 +77,9 @@ export const main = async () => {
   preserveFocusState();
 
   await emit.started();
-  await safeRun(() => handleCourse(totalChapterList()), "课程处理失败");
+  await safeRun(
+    async () => handleCourse(await loadChapterList()),
+    "课程处理失败",
+  );
   await emit.finished();
 };

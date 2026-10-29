@@ -12,21 +12,23 @@ const config = /** @type {typeof import("../config/build.json")} */ (
 const entries = /** @type {typeof import("../injected/entries.json")} */ (
   JSON.parse(readFileSync(resolve(root, "injected/entries.json"), "utf8"))
 );
-const homepage = "https://github.com/unraous/uxuescript";
+const homepage = "https://github.com/a-LtrIa/uxuescript4UCAS";
 const download = `${homepage}/releases/latest/download/uxuescript.user.js`;
 
 const metadata = `// ==UserScript==
-// @name         uXueScript
+// @name         uXueScript4ucas
 // @namespace    ${homepage}
 // @version      ${config.version}
 // @description  学习通视频、音频与 PDF 课程任务自动处理，支持视频内互动题与批注自动继续学习。
-// @author       ${config.app.author}
+// @author       ${config.app.author}, altria
 // @license      GPL-3.0-only
 // @homepageURL  ${homepage}
 // @supportURL   ${homepage}/issues
 // @match        *://mooc1.chaoxing.com/mycourse/studentstudy*
+// @match        *://mooc.mooc.ucas.edu.cn/mooc-ans/mycourse/studentstudy*
+// @match        *://mooc.mooc.ucas.edu.cn/mooc-ans/screen/file*
+// @match        *://pan.mooc.ucas.edu.cn/screen/v2/file_*
 // @run-at       document-idle
-// @noframes
 // @grant        none
 // @updateURL    ${download}
 // @downloadURL  ${download}

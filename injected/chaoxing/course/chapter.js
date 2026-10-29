@@ -1,6 +1,8 @@
 import { emit, safeRun } from "@injected/chaoxing/course/runtime.js";
 import { wait, assert } from "@injected/utils/async.js";
 import { SELECTORS } from "@injected/chaoxing/selectors.js";
+
+const isUCASCourse = location.hostname === "mooc.mooc.ucas.edu.cn";
 import { handleTab } from "@injected/chaoxing/course/chapter/tasks.js";
 /**
  * 进入章节并逐个切换页签，在每个页签中处理任务点。
@@ -13,6 +15,22 @@ export const handleChapter = async (node) => {
   );
   assert(nameSpan, "节点获取章节名称失败");
   console.info(`开始进入章节[${nameSpan.getAttribute("title")}]`);
+
+  if (isUCASCourse) {
+    await emit.tabProgress(0, 1);
+    await safeRun(async () => {
+      console.info("等待国科大章节主框架加载");
+      const chapterDoc = await wait.iframeDoc(
+        () => nameSpan.click(),
+        SELECTORS.frames.chapterFrameId,
+        document,
+        "获取国科大章节主框架超时",
+      );
+      await handleTab(chapterDoc);
+    }, "国科大章节处理失败，自动跳过该章节");
+    console.info("本章节处理完毕");
+    return;
+  }
 
   // 单页章节依然保留了隐藏的 Tab 元素，因此至少有一个 Tab
   const tabs = await wait.elements(
