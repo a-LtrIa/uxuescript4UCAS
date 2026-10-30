@@ -1,5 +1,5 @@
 blank_issues_enabled: true
 contact_links:
-  - name: 使用与故障排查
-    url: https://github.com/unraous/uxuescript/blob/main/docs/troubleshooting.md
-    about: 查看课程启动、倍速、后台暂停、模型请求及日志获取说明。
+  - name: 安装与使用说明
+    url: https://github.com/a-LtrIa/uxuescript4UCAS#readme
+    about: 查看安装、课程启动与功能边界说明。

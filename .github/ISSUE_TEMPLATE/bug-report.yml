@@ -1,36 +1,34 @@
 name: 问题反馈
-description: 报告运行异常、课程不兼容或模型请求问题。
+description: 报告脚本运行异常或课程页面不兼容问题。
 labels: [bug]
 body:
   - type: markdown
     attributes:
       value: |
-        请先查看[故障排查](https://github.com/unraous/uxuescript/blob/main/docs/troubleshooting.md)及已有 Issue。
-        日志和截图请移除密钥、账号与 URL 中的令牌，无需提供登录凭据或整份配置文件。
+        请先搜索已有 Issue。日志和截图请移除账号、Cookie 与 URL 中的令牌，无需提供登录凭据。
   - type: input
     id: version
     attributes:
-      label: 客户端或脚本版本
-      description: 桌面端查看右下角版本；独立脚本注明下载来源或提交号。
+      label: 脚本版本
+      description: 在 Tampermonkey 管理面板中查看版本，或填写下载来源与提交号。
       placeholder: 版本号或 commit
     validations:
       required: true
   - type: dropdown
     id: mode
     attributes:
-      label: 运行方式
+      label: 安装方式
       options:
-        - 桌面客户端（安装包或便携版）
-        - 从源码运行
-        - 浏览器独立脚本
+        - Tampermonkey 正式发行版
+        - 从源码构建
     validations:
       required: true
   - type: input
     id: environment
     attributes:
       label: 系统与浏览器
-      description: 填写系统版本；独立脚本同时填写浏览器名称与版本。
-      placeholder: Windows 11 / macOS 版本；Edge 或 Firefox 版本
+      description: 填写系统版本、浏览器名称与版本。
+      placeholder: Windows 11 / macOS 版本；Edge 或 Chrome 版本
     validations:
       required: true
   - type: textarea
@@ -48,14 +46,13 @@ body:
   - type: textarea
     id: context
     attributes:
-      label: 相关课程或模型信息
+      label: 相关课程信息
       description: 仅填写与问题有关的项目；页面地址保留域名和路径即可。
       placeholder: |
         课程问题：视频 / PDF / 互动题 / 章节测验，页面域名与路径。
-        是否开启倍速或人工核验？最小化才暂停，还是普通切换应用也暂停？
-        模型问题：Provider、模型 ID、接口域名与路径、错误码。
+        页面是否位于国科大在线？PDF 阅读器是否已经加载？
   - type: textarea
     id: evidence
     attributes:
       label: 日志与截图
-      description: 可粘贴脱敏日志或拖入附件。桌面端通过底部“日志/配置目录”找到 logs，提供同一次运行中出错前后的内容。
+      description: 可粘贴浏览器控制台中脱敏后的日志或拖入截图。

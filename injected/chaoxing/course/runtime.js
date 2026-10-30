@@ -1,26 +1,13 @@
 import { config } from "@injected/chaoxing/runtime.js";
-import { invoke, confirm } from "@injected/utils/backend.js";
+import { confirm } from "@injected/utils/confirm.js";
 import { SELECTORS } from "@injected/chaoxing/selectors.js";
 import { chapterNodeStatus } from "./chapters.js";
 
-/**
- * @param {import("../../../src/services/cmds").CourseStatus} status
- */
-const invokeStatus = async (status) => {
-  try {
-    if (invoke) {
-      await invoke("send_status", { status });
-    }
-  } catch (e) {
-    console.error("[send_status] 发送进度状态失败:", e);
-  }
-};
+const noop = async () => {};
 
-/** 向桌面端报告进度；普通浏览器中不发送 IPC。 */
+/** 课程进度在当前独立脚本中只用于保持章节处理流程一致。 */
 export const emit = {
-  started: async () => {
-    await invokeStatus({ kind: "start", payload: null });
-  },
+  started: noop,
 
   /** @type {(index: number, node: Element, list: Element[]) => Promise<void>} */
   chapterProgress: async (index, node, list) => {
@@ -32,29 +19,22 @@ export const emit = {
     const completed = list.filter(
       (node) => chapterNodeStatus(node) === "Finished",
     ).length;
-    await invokeStatus({
-      kind: "chapter",
-      payload: { title, index, completed, total },
-    });
+    console.info(`章节进度：${title} (${completed}/${total})`);
   },
 
   /** @type {(index: number, total: number) => Promise<void>} */
   tabProgress: async (index, total) => {
-    await invokeStatus({ kind: "tab", payload: { index, total } });
+    console.info(`页签进度：${index + 1}/${total}`);
   },
 
   /** @type {(index: number, category: string) => Promise<void>} */
   taskProgress: async (index, category) => {
-    await invokeStatus({ kind: "task", payload: { index, category } });
+    console.info(`任务点进度：${index + 1}，类别：${category}`);
   },
 
-  cancelled: async () => {
-    await invokeStatus({ kind: "cancel", payload: null });
-  },
+  cancelled: noop,
 
-  finished: async () => {
-    await invokeStatus({ kind: "finish", payload: null });
-  },
+  finished: noop,
 };
 
 /**

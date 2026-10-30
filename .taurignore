@@ -1,4 +1,0 @@
-# Keep generated scripts watchable while dist remains ignored by Git.
-!/dist/
-!/dist/scripts/
-!/dist/scripts/**

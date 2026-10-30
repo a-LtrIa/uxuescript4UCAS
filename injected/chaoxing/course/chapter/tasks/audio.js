@@ -1,5 +1,5 @@
 import { config } from "@injected/chaoxing/runtime.js";
-import { confirm } from "@injected/utils/backend.js";
+import { confirm } from "@injected/utils/confirm.js";
 import { SELECTORS } from "@injected/chaoxing/selectors.js";
 import { muteVideo, applySpeed } from "./media.js";
 import { wait, assert } from "@injected/utils/async.js";

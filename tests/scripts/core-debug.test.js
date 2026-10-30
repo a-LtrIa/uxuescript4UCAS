@@ -1,4 +1,4 @@
-import { flushPromises } from "@vue/test-utils";
+import { flushPromises } from "./support.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { config } from "@injected/chaoxing/runtime.js";
 import { wait } from "@injected/utils/async.js";
@@ -6,7 +6,6 @@ import { handleTab } from "@injected/chaoxing/course/chapter/tasks.js";
 import { handleVideo } from "@injected/chaoxing/course/chapter/tasks/video.js";
 import { handleAudio } from "@injected/chaoxing/course/chapter/tasks/audio.js";
 import { handlePDF } from "@injected/chaoxing/course/chapter/tasks/pdf.js";
-import { handleQuiz } from "@injected/chaoxing/course/chapter/tasks/quiz.js";
 
 vi.mock("@injected/chaoxing/course/chapter/tasks/video.js", () => ({
   handleVideo: vi.fn(),
@@ -17,27 +16,22 @@ vi.mock("@injected/chaoxing/course/chapter/tasks/audio.js", () => ({
 vi.mock("@injected/chaoxing/course/chapter/tasks/pdf.js", () => ({
   handlePDF: vi.fn(),
 }));
-vi.mock("@injected/chaoxing/course/chapter/tasks/quiz.js", () => ({
-  handleQuiz: vi.fn(),
-}));
 afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 /** @param {typeof config.debugTaskTypes} debugTypes */
-function setup(debugTypes, hasBackend = true) {
+function setup(debugTypes) {
   const handlers = {
     Video: handleVideo,
     Audio: handleAudio,
     PDF: handlePDF,
-    Quiz: handleQuiz,
   };
   for (const handler of Object.values(handlers))
     vi.mocked(handler).mockReset().mockResolvedValue(undefined);
   Object.assign(config, {
     debugTaskTypes: debugTypes,
-    hasBackend,
     switchingCd: null,
   });
   vi.spyOn(window, "confirm").mockReturnValue(true);
@@ -98,21 +92,21 @@ function setup(debugTypes, hasBackend = true) {
 }
 describe("audio task dispatch", () => {
   it("runs standalone audio and waits for its task completion marker", async () => {
-    const page = setup([], false);
+    const page = setup([]);
     page.add("audio", true);
     await page.run();
     expect(page.handlers.Audio).toHaveBeenCalledOnce();
     expect(page.observe).toHaveBeenCalledOnce();
   });
   it("skips completed audio tasks", async () => {
-    const page = setup([], false);
+    const page = setup([]);
     page.add("audio", true, true);
     await page.run();
     expect(page.handlers.Audio).not.toHaveBeenCalled();
     expect(page.observe).not.toHaveBeenCalled();
   });
   it("selects audio in debug mode without waiting for completion", async () => {
-    const page = setup(["Audio"], false);
+    const page = setup(["Audio"]);
     page.add("audio", false, true);
     page.add("video", true);
     await page.run();
@@ -123,19 +117,18 @@ describe("audio task dispatch", () => {
 });
 describe("debug task selection", () => {
   it("processes only selected types, including unmarked and completed attachments", async () => {
-    const page = setup(["Quiz"]);
+    const page = setup(["Video"]);
     page.add("video", true);
+    page.add("video", false);
     page.add("pdf", true);
-    page.add("work", false);
-    page.add("work", true, true);
+    page.add("pdf", false);
     page.add("unknown", false);
     const imageAttachment = page.chapter.body.appendChild(
       document.createElement("div"),
     );
     imageAttachment.className = "ans-attach-ct";
     await page.run();
-    expect(page.handlers.Quiz).toHaveBeenCalledTimes(2);
-    expect(page.handlers.Video).not.toHaveBeenCalled();
+    expect(page.handlers.Video).toHaveBeenCalledTimes(2);
     expect(page.handlers.PDF).not.toHaveBeenCalled();
     expect(page.observe).not.toHaveBeenCalled();
     expect(page.wait.elements).toHaveBeenCalledWith(
@@ -145,25 +138,22 @@ describe("debug task selection", () => {
       false,
     );
   });
-  it("allows several selected types and skips Quiz without requiring a backend", async () => {
-    const page = setup(["Video", "PDF"], false);
-    page.add("work", true);
+  it("allows several selected types", async () => {
+    const page = setup(["Video", "PDF"]);
     page.add("video", false);
     page.add("pdf", false, true);
     await page.run();
     expect(page.handlers.Video).toHaveBeenCalledOnce();
     expect(page.handlers.PDF).toHaveBeenCalledOnce();
-    expect(page.handlers.Quiz).not.toHaveBeenCalled();
     expect(page.observe).not.toHaveBeenCalled();
   });
   it("keeps normal mode limited to unfinished marked tasks", async () => {
     const page = setup([]);
-    page.add("work", false);
-    page.add("work", true, true);
+    page.add("video", false);
+    page.add("video", true, true);
     page.add("video", true);
     page.add("pdf", true);
     await page.run();
-    expect(page.handlers.Quiz).not.toHaveBeenCalled();
     expect(page.handlers.Video).toHaveBeenCalledOnce();
     expect(page.handlers.PDF).toHaveBeenCalledOnce();
     expect(page.observe).toHaveBeenCalledTimes(2);
@@ -189,33 +179,28 @@ describe("debug task selection", () => {
     await run;
     expect(done).toBe(true);
   });
-  it.each([
-    ["unknown", "未识别的任务点类型:"],
-    ["work", "未开启后端服务，无法处理Quiz任务点"],
-  ])(
-    "continues after a %s assertion without starting its completion watcher",
-    async (kind, message) => {
-      const page = setup([], false);
-      page.add(kind, true);
-      page.add("pdf", true);
-      await page.run();
-      expect(page.error).toHaveBeenCalledOnce();
-      expect(page.error).toHaveBeenCalledWith(
-        expect.stringContaining("第 1/2 个任务点 处理异常，自动跳过"),
-        expect.objectContaining({ message: expect.stringContaining(message) }),
-      );
-      expect(page.handlers.Quiz).not.toHaveBeenCalled();
-      expect(page.handlers.PDF).toHaveBeenCalledOnce();
-      expect(page.observe).toHaveBeenCalledOnce();
-      expect(page.observe).toHaveBeenCalledWith(page.chapter.body.children[1], {
-        attributes: true,
-        attributeFilter: ["class"],
-      });
-    },
-  );
-  it("does not fail on a debug page without frame attachments", async () => {
-    const page = setup(["Quiz"]);
+  it("continues after an unsupported task without watching completion", async () => {
+    const page = setup([]);
+    page.add("unknown", true);
+    page.add("pdf", true);
     await page.run();
-    expect(page.handlers.Quiz).not.toHaveBeenCalled();
+    expect(page.error).toHaveBeenCalledOnce();
+    expect(page.error).toHaveBeenCalledWith(
+      expect.stringContaining("第 1/2 个任务点 处理异常，自动跳过"),
+      expect.objectContaining({
+        message: expect.stringContaining("未识别的任务点类型:"),
+      }),
+    );
+    expect(page.handlers.PDF).toHaveBeenCalledOnce();
+    expect(page.observe).toHaveBeenCalledOnce();
+    expect(page.observe).toHaveBeenCalledWith(page.chapter.body.children[1], {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+  });
+  it("does not fail on a debug page without frame attachments", async () => {
+    const page = setup(["Video"]);
+    await page.run();
+    expect(page.handlers.Video).not.toHaveBeenCalled();
   });
 });

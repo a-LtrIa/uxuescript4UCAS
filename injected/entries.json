@@ -1,9 +1,3 @@
 {
-  "core": "chaoxing/course.js",
-  "work": "chaoxing/work.js",
-  "exam": "chaoxing/exam.js",
-  "click-auto-login": "chaoxing/click-auto-login.js",
-  "iframe-init": "chaoxing/iframe-init.js",
-  "course-list-metadata": "chaoxing/course-list-metadata.js",
-  "webview-log": "runtime/webview-log.js"
+  "core": "chaoxing/course.js"
 }

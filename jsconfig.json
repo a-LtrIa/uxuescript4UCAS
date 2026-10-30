@@ -18,13 +18,10 @@
   },
   "include": [
     "injected/**/*.js",
-    "injected/**/*.ts",
-    "injected/**/*.d.ts",
     "tests/**/*.js",
     "tests/**/*.mjs",
     "scripts/**/*.mjs",
-    "scripts/**/*.cjs",
     "eslint.config.js"
   ],
-  "exclude": ["node_modules", "dist", "target"]
+  "exclude": ["node_modules", "dist"]
 }

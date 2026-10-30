@@ -1,5 +1,2 @@
-# 忽略代码自动生成目标文件
-src/services/cmds.ts
+# 忽略构建产物
 dist/
-target/
-src-tauri/target/

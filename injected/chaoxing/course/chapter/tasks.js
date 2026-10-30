@@ -3,7 +3,6 @@ import { emit, safeRun } from "@injected/chaoxing/course/runtime.js";
 import { handleVideo } from "@injected/chaoxing/course/chapter/tasks/video.js";
 import { handleAudio } from "@injected/chaoxing/course/chapter/tasks/audio.js";
 import { handlePDF } from "@injected/chaoxing/course/chapter/tasks/pdf.js";
-import { handleQuiz } from "@injected/chaoxing/course/chapter/tasks/quiz.js";
 import { wait, assert } from "@injected/utils/async.js";
 import { SELECTORS } from "@injected/chaoxing/selectors.js";
 /**
@@ -14,7 +13,6 @@ const classifyTask = (taskDoc) => {
   if (url.includes(SELECTORS.urls.video)) return "Video";
   if (url.includes(SELECTORS.urls.audio)) return "Audio";
   if (url.includes(SELECTORS.urls.pdf)) return "PDF";
-  if (url.includes(SELECTORS.urls.quiz)) return "Quiz";
   return "Other";
 };
 
@@ -23,7 +21,6 @@ const handlers = {
   Video: handleVideo,
   Audio: handleAudio,
   PDF: handlePDF,
-  Quiz: handleQuiz,
 };
 
 /**
@@ -100,9 +97,6 @@ export const handleTab = async (chapterDoc) => {
     await cooldown();
     await safeRun(async () => {
       assert(handler, `未识别的任务点类型: ${taskDoc.location.href}`);
-      if (type === "Quiz")
-        assert(config.hasBackend, "未开启后端服务，无法处理Quiz任务点");
-
       await handler(taskDoc);
       if (!debugging) await taskPointComplete(container);
     }, `${taskInfo} 处理异常，自动跳过，任务点类别：${type}`);

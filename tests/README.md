@@ -1,50 +1,9 @@
-# 测试说明
+# 测试
 
-所有命令在仓库根目录运行。基础检查与共享 CI 一致：
+测试直接导入 `injected/` 中的油猴脚本模块，并检查课程章节、视频/音频任务、PDF 通信与完整脚本构建结果。
 
-```powershell
+```bash
 pnpm test
-pnpm build
-cargo test --workspace --locked
 ```
 
-`pnpm build` 包含类型检查、前端生产构建和注入脚本打包。只需类型检查可运行 `node scripts/typecheck.cjs --noEmit`；直接执行 Cargo 前先运行 `pnpm sync:config` 和 `pnpm build:scripts`。
-
-## 测试归属
-
-| 位置 | 验证职责 |
-| --- | --- |
-| `tests/components/`、`layouts/`、`composables/`、`services/` | 前端组件与业务交互 |
-| `tests/scripts/` | 普通 JS 用例直接导入 `injected/` 模块；跨 frame 隔离场景保留产物沙箱，`pnpm test` 自动先打包 |
-| `tests/integration/` | 跨组件语言切换 |
-| `tests/tooling/` | 配置同步与发布脚本 |
-| `tests/updater/` | 更新模拟服务与[手动安装验证](updater/README.md) |
-| 各 Rust crate 的 `tests/unit/` | 所属模块的单元测试，通过 `#[cfg(test)]` 与 `#[path]` 保留私有实现访问 |
-| `src-tauri/tests/live/` | 真实模型服务、HTML 联测、Ollama 模型发现及百题计时 |
-
-本地 mock 验证协议与错误处理，不能代替真实服务兼容性验证。Rust workspace 测试包含命令宏 crate，默认不会运行 `#[ignore]` 外部用例。
-
-## 按需外部联测
-
-先查看可用入口，再配置对应服务与凭据（`.env` 或环境变量），只运行所需用例：
-
-```powershell
-pnpm sync:config
-cargo test -p uxuescript live_tests -- --ignored --list
-cargo test -p uxuescript test_solve_bigmodel -- --ignored --nocapture
-```
-
-百炼用例为 `test_solve_bailian`，从 `DASHSCOPE_API_KEY` 读取北京地域密钥；以同样方式按需运行。
-硅基流动用例为 `test_solve_siliconflow`，从 `SILICONFLOW_API_KEY` 读取中国站密钥。
-
-未实际请求外部服务时，只报告本地验证结果；不要将编译或入口列出成功表述为联测通过。
-
-## 增补测试
-
-`tests/fixtures/chaoxing/` 保存用户提供的真实单选、连线题 HTML 节选，去除身份信息及无关页面区域。`tests/scripts/questions.test.js` 检查题目提取和选项点击，尤其覆盖连线题显示编号与内部 `data` 标识不同，以及公式元数据解码和普通图片占位的情况。样本未包含下拉框处理脚本，因此这些用例不验证页面脚本更新隐藏答案或服务端暂存。
-
-同一 JS 用例还读取 `src-tauri/tests/assets/course-page/webpage.html.gz`，用章节测验选择器核对题目列表与字体原始字节。Rust 命令测试分别覆盖 `QuestionPayload` 无字体直传和有字体解密后求解；解密测试及求解联测直接读取题目 JSON 与字体样本，不再解析 HTML。
-
-测试沿被测职责组织，场景专属数据、mock 和断言留在用例附近。公共支持只收拢真实复用的机制：Rust 的 `src-tauri/tests/unit/support.rs` 与 `support/` 提供 HTTP 模拟，固定样本在 `src-tauri/tests/assets/`。
-
-测试清理自己创建的资源，预期样本只读。新增本地用例不应删除或替代已有外部联测。
+测试使用 Vitest 和 jsdom，不需要账号、浏览器扩展或外部服务。构建工具测试会临时生成并解析 `uxuescript.user.js`，确认脚本可以独立执行且油猴元数据正确。

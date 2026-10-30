@@ -1,4 +1,4 @@
-import { flushPromises } from "@vue/test-utils";
+import { flushPromises } from "./support.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { handleCourse } from "@injected/chaoxing/course/chapters.js";
 import { handleChapter } from "@injected/chaoxing/course/chapter.js";

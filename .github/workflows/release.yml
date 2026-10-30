@@ -4,317 +4,43 @@ on:
   push:
     tags:
       - "v*"
-  workflow_dispatch:
-    inputs:
-      release_tag:
-        description: Existing GitHub Release tag to synchronize to Gitee
-        required: true
-        type: string
 
 permissions:
   contents: write
 
-concurrency:
-  group: release-${{ inputs.release_tag || github.ref_name }}
-  cancel-in-progress: false
-
 jobs:
-  test:
+  check:
     name: Run checks
-    if: github.event_name == 'push'
     uses: ./.github/workflows/ci.yml
 
-  scripts:
-    name: Build browser scripts
+  publish:
+    name: Publish userscript
     runs-on: ubuntu-latest
-    needs: test
+    needs: check
+
     steps:
       - name: Check out source
         uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: .node-version
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 12.3.4
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Validate release version
+      - name: Build userscript
         run: |
+          pnpm build
           VERSION="$(node --input-type=module -e 'import fs from "node:fs"; console.log(JSON.parse(fs.readFileSync("config/build.json", "utf8")).version)')"
           test "$VERSION" = "${GITHUB_REF_NAME#v}"
-
-      - name: Build browser scripts
-        run: node scripts/build-scripts.mjs
-
-      - name: Upload browser scripts
-        uses: actions/upload-artifact@v4
-        with:
-          name: scripts-release
-          path: |
-            dist/scripts/core.js
-            dist/scripts/uxuescript.user.js
-          if-no-files-found: error
-
-  windows:
-    name: Build Windows packages
-    runs-on: windows-latest
-    needs: test
-
-    steps:
-      - name: Check out source
-        uses: actions/checkout@v4
-
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 12.3.4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: .node-version
-          cache: pnpm
-
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache Rust dependencies and build output
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-rust-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-rust-
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Synchronize and validate version
-        shell: pwsh
-        run: |
-          pnpm sync:config
-          $buildConfig = Get-Content -Raw config/build.json | ConvertFrom-Json
-          "ARTIFACT_PREFIX=$($buildConfig.app.artifact_prefix)" >> $env:GITHUB_ENV
-
-          $cargoToml = Get-Content -Raw src-tauri/Cargo.toml
-          $version = [regex]::Match($cargoToml, '(?m)^version\s*=\s*"([^"]+)"').Groups[1].Value
-          $tagVersion = $env:GITHUB_REF_NAME -replace '^v', ''
-
-          if ([string]::IsNullOrWhiteSpace($version)) {
-            throw "Cannot read package version from src-tauri/Cargo.toml"
-          }
-          if ($version -ne $tagVersion) {
-            throw "Release tag version '$tagVersion' does not match Cargo version '$version'"
-          }
-
-          "VERSION=$version" >> $env:GITHUB_ENV
-
-      - name: Build MSI and portable executable
-        shell: pwsh
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: |
-          if ([string]::IsNullOrWhiteSpace($env:TAURI_SIGNING_PRIVATE_KEY)) {
-            throw "Set the TAURI_SIGNING_PRIVATE_KEY repository secret before creating releases"
-          }
-          $workspaceRoot = [System.IO.Path]::GetFullPath($env:GITHUB_WORKSPACE).TrimEnd('\') + '\'
-          $bundleDirectory = [System.IO.Path]::GetFullPath((Join-Path $env:GITHUB_WORKSPACE "target/release/bundle/msi"))
-          if (-not $bundleDirectory.StartsWith($workspaceRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
-            throw "MSI output path escaped the workspace: $bundleDirectory"
-          }
-          if (Test-Path -LiteralPath $bundleDirectory) {
-            Remove-Item -LiteralPath $bundleDirectory -Recurse -Force
-          }
-          pnpm tauri build --bundles msi
-
-          $releaseDirectory = Join-Path $env:GITHUB_WORKSPACE "release"
-          New-Item -ItemType Directory -Path $releaseDirectory -Force | Out-Null
-
-          $buildConfig = Get-Content -Raw config/build.json | ConvertFrom-Json
-          $portableExe = "target/release/$($buildConfig.app.name).exe"
-          if (-not (Test-Path -LiteralPath $portableExe -PathType Leaf)) {
-            throw "Portable executable not found: $portableExe"
-          }
-          Copy-Item -LiteralPath $portableExe -Destination (Join-Path $releaseDirectory "$($env:ARTIFACT_PREFIX)-$env:VERSION-win-x64.exe")
-
-          $msi = Get-ChildItem -File "target/release/bundle/msi/*$($env:VERSION)*.msi" | Select-Object -First 1
-          if ($null -eq $msi) {
-            throw "MSI bundle not found"
-          }
-          Copy-Item -LiteralPath $msi.FullName -Destination (Join-Path $releaseDirectory "$($env:ARTIFACT_PREFIX)-$env:VERSION-win-x64.msi")
-          $updaterBundle = $msi.FullName
-          $updaterSignature = "$updaterBundle.sig"
-          if (-not (Test-Path -LiteralPath $updaterBundle -PathType Leaf)) {
-            throw "MSI updater bundle not found: $updaterBundle"
-          }
-          if (-not (Test-Path -LiteralPath $updaterSignature -PathType Leaf)) {
-            throw "Signed MSI updater bundle not found: $updaterSignature"
-          }
-          Copy-Item -LiteralPath $updaterSignature -Destination (Join-Path $releaseDirectory "$($env:ARTIFACT_PREFIX)-$env:VERSION-win-x64.msi.sig")
-
-      - name: Upload Windows packages
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-release
-          path: release/*
-          if-no-files-found: error
-
-  macos:
-    name: Build macOS package
-    runs-on: macos-14
-    needs: test
-
-    steps:
-      - name: Check out source
-        uses: actions/checkout@v4
-
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 12.3.4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: .node-version
-          cache: pnpm
-
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache Rust dependencies and build output
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-rust-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-rust-
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Synchronize and validate version
-        run: |
-          pnpm sync:config
-          ARTIFACT_PREFIX="$(jq -r .app.artifact_prefix config/build.json)"
-          echo "ARTIFACT_PREFIX=$ARTIFACT_PREFIX" >> "$GITHUB_ENV"
-
-          VERSION="$(sed -nE 's/^version[[:space:]]*=[[:space:]]*"([^"]+)"/\1/p' src-tauri/Cargo.toml | head -n 1)"
-          TAG_VERSION="${GITHUB_REF_NAME#v}"
-
-          test -n "$VERSION"
-          test "$VERSION" = "$TAG_VERSION" || {
-            echo "Release tag version '$TAG_VERSION' does not match Cargo version '$VERSION'"
-            exit 1
-          }
-
-          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
-
-      - name: Build macOS DMG
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: |
-          test -n "$TAURI_SIGNING_PRIVATE_KEY" || {
-            echo "Set the TAURI_SIGNING_PRIVATE_KEY repository secret before creating releases"
-            exit 1
-          }
-          test "$(uname -m)" = "arm64"
-          rm -rf target/release/bundle/dmg target/release/bundle/macos
-          pnpm tauri build --bundles app,dmg
-
-          mkdir -p release
-          DMG="$(find target/release/bundle/dmg -maxdepth 1 -type f -name '*.dmg' | head -n 1)"
-          test -n "$DMG"
-          cp "$DMG" "release/$ARTIFACT_PREFIX-$VERSION-mac-arm64.dmg"
-
-          UPDATER_BUNDLE="$(find target/release/bundle/macos -maxdepth 1 -type f -name '*.app.tar.gz' | head -n 1)"
-          test -n "$UPDATER_BUNDLE"
-          cp "$UPDATER_BUNDLE" "release/$ARTIFACT_PREFIX-$VERSION-mac-arm64.app.tar.gz"
-          test -f "$UPDATER_BUNDLE.sig"
-          cp "$UPDATER_BUNDLE.sig" "release/$ARTIFACT_PREFIX-$VERSION-mac-arm64.app.tar.gz.sig"
-
-      - name: Verify macOS package signatures
-        run: |
-          VERIFY_DIR="$(mktemp -d)"
-          mkdir -p "$VERIFY_DIR/dmg" "$VERIFY_DIR/update"
-
-          DMG="release/$ARTIFACT_PREFIX-$VERSION-mac-arm64.dmg"
-          hdiutil verify "$DMG"
-          # The image contains the project's license agreement; accept it for CI mounting.
-          hdiutil attach "$DMG" -readonly -nobrowse -mountpoint "$VERIFY_DIR/dmg" <<< 'Y'
-          trap 'hdiutil detach "$VERIFY_DIR/dmg"' EXIT
-          DMG_APP="$(find "$VERIFY_DIR/dmg" -maxdepth 1 -type d -name '*.app' | head -n 1)"
-          test -n "$DMG_APP"
-          codesign --verify --deep --strict --verbose=2 "$DMG_APP"
-
-          tar -xzf "release/$ARTIFACT_PREFIX-$VERSION-mac-arm64.app.tar.gz" -C "$VERIFY_DIR/update"
-          UPDATE_APP="$(find "$VERIFY_DIR/update" -maxdepth 1 -type d -name '*.app' | head -n 1)"
-          test -n "$UPDATE_APP"
-          codesign --verify --deep --strict --verbose=2 "$UPDATE_APP"
-
-      - name: Upload macOS package
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-release
-          path: release/*
-          if-no-files-found: error
-
-  publish:
-    name: Publish GitHub Release
-    runs-on: ubuntu-latest
-    needs:
-      - windows
-      - macos
-      - scripts
-
-    steps:
-      - name: Check out source
-        uses: actions/checkout@v4
-
-      - name: Download release packages
-        uses: actions/download-artifact@v4
-        with:
-          pattern: "*-release"
-          path: release
-          merge-multiple: true
-
-      - name: Generate canonical updater manifest
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          ARTIFACT_PREFIX="$(jq -r .app.artifact_prefix config/build.json)"
-          RELEASE_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}"
-          NOTES_FILE=".github/release-notes/$GITHUB_REF_NAME.md"
-          NOTES=""
-          if [ -f "$NOTES_FILE" ]; then
-            NOTES="$(cat "$NOTES_FILE")"
-          fi
-          jq -n \
-            --arg version "$VERSION" \
-            --arg notes "$NOTES" \
-            --arg pub_date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            --arg win_url "$RELEASE_URL/$ARTIFACT_PREFIX-$VERSION-win-x64.msi" \
-            --rawfile win_sig "release/$ARTIFACT_PREFIX-$VERSION-win-x64.msi.sig" \
-            --arg mac_url "$RELEASE_URL/$ARTIFACT_PREFIX-$VERSION-mac-arm64.app.tar.gz" \
-            --rawfile mac_sig "release/$ARTIFACT_PREFIX-$VERSION-mac-arm64.app.tar.gz.sig" \
-            '{version:$version,notes:$notes,pub_date:$pub_date,platforms:{"windows-x86_64":{url:$win_url,signature:$win_sig},"darwin-aarch64":{url:$mac_url,signature:$mac_sig}}}' \
-            > release/latest.json
 
       - name: Create or update GitHub Release
         env:
@@ -322,48 +48,15 @@ jobs:
         run: |
           NOTES_FILE=".github/release-notes/$GITHUB_REF_NAME.md"
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" release/* --clobber
+            gh release upload "$GITHUB_REF_NAME" dist/scripts/uxuescript.user.js --clobber
+          elif [ -f "$NOTES_FILE" ]; then
+            gh release create "$GITHUB_REF_NAME" dist/scripts/uxuescript.user.js \
+              --verify-tag \
+              --title "$GITHUB_REF_NAME" \
+              --notes-file "$NOTES_FILE"
           else
-            if [ -f "$NOTES_FILE" ]; then
-              gh release create "$GITHUB_REF_NAME" release/* \
-                --verify-tag \
-                --title "$GITHUB_REF_NAME" \
-                --notes-file "$NOTES_FILE" \
-                --generate-notes
-            else
-              gh release create "$GITHUB_REF_NAME" release/* \
-                --verify-tag \
-                --title "$GITHUB_REF_NAME" \
-                --generate-notes
-            fi
+            gh release create "$GITHUB_REF_NAME" dist/scripts/uxuescript.user.js \
+              --verify-tag \
+              --title "$GITHUB_REF_NAME" \
+              --generate-notes
           fi
-
-  sync-gitee:
-    name: Mirror Release to Gitee
-    runs-on: ubuntu-latest
-    needs: publish
-    if: >-
-      always() && !cancelled() &&
-      ((github.event_name == 'push' && needs.publish.result == 'success') ||
-       github.event_name == 'workflow_dispatch')
-    permissions:
-      contents: read
-    steps:
-      - name: Check out source and tags
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: .node-version
-
-      - name: Synchronize published Release
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
-          RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
-          SOURCE_REPO: ${{ github.repository }}
-        run: node scripts/sync-gitee-release.mjs "$SOURCE_REPO" "$RELEASE_TAG" unraous/uxuescript

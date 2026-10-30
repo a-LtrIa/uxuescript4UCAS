@@ -20,7 +20,7 @@ const metadata = `// ==UserScript==
 // @namespace    ${homepage}
 // @version      ${config.version}
 // @description  学习通视频、音频与 PDF 课程任务自动处理，支持视频内互动题与批注自动继续学习。
-// @author       ${config.app.author}, altria
+// @author       ${config.author}
 // @license      GPL-3.0-only
 // @homepageURL  ${homepage}
 // @supportURL   ${homepage}/issues
@@ -40,28 +40,17 @@ export async function buildScripts({
   output = resolve(root, "dist/scripts"),
   watch = false,
 } = {}) {
-  for (const [name, source] of Object.entries(entries)) {
-    const entry = `${name}.js`;
+  for (const source of Object.values(entries)) {
     const virtualEntry = "\0uxs:entry";
     const modulePath = resolve(root, "injected", source).replaceAll("\\", "/");
-    /** @type {import("vite").Rolldown.OutputOptions[]} */
-    const outputs = [
-      {
-        format: /** @type {const} */ ("iife"),
-        name: "uXueScript",
-        entryFileNames: `embedded/${entry}`,
-        minify: true,
-      },
-    ];
-    if (entry === "core.js") {
-      const readable = { ...outputs[0], entryFileNames: entry, minify: false };
-      outputs.push(readable);
-      outputs.push({
-        ...readable,
-        entryFileNames: "uxuescript.user.js",
-        banner: metadata,
-      });
-    }
+    /** @type {import("vite").Rolldown.OutputOptions} */
+    const outputOptions = {
+      format: "iife",
+      name: "uXueScript",
+      entryFileNames: "uxuescript.user.js",
+      banner: metadata,
+      minify: false,
+    };
     const result = await build({
       configFile: false,
       publicDir: false,
@@ -100,7 +89,7 @@ export async function buildScripts({
         minify: false,
         reportCompressedSize: false,
         watch: watch ? {} : null,
-        rolldownOptions: { input: "virtual:uxs-entry", output: outputs },
+        rolldownOptions: { input: "virtual:uxs-entry", output: outputOptions },
       },
     });
     if (watch) {

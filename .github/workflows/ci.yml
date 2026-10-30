@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   check:
-    name: Check application
+    name: Check userscript
     runs-on: ubuntu-latest
 
     steps:
@@ -23,56 +23,20 @@ jobs:
         with:
           version: 12.3.4
 
-      - name: Install Linux system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            libwebkit2gtk-4.1-dev \
-            build-essential \
-            curl \
-            wget \
-            file \
-            libxdo-dev \
-            libssl-dev \
-            libgtk-3-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev \
-            patchelf \
-            libfuse2
-
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version-file: .node-version
           cache: pnpm
 
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache Rust dependencies and build output
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-rust-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-rust-
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run frontend tests
-        run: pnpm test
-
-      - name: Lint and check script formatting
+      - name: Check types, formatting, and lint
         run: |
-          pnpm lint:scripts
-          pnpm fmt:scripts:check
+          pnpm typecheck
+          pnpm format:check
+          pnpm lint
 
-      - name: Check types and build frontend
-        run: pnpm build
-
-      - name: Run Rust tests
-        run: cargo test --workspace --locked
+      - name: Test and build
+        run: pnpm test
