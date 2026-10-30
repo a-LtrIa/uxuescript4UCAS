@@ -1,7 +1,7 @@
 {
   "name": "uxuescript4ucas",
   "private": true,
-  "version": "2.5.3",
+  "version": "2.5.4",
   "type": "module",
   "scripts": {
     "lint": "eslint injected tests scripts eslint.config.js",
